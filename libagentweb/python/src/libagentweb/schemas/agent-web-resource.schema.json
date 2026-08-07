@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agent-web:schema:resource:0.2",
+  "title": "Agent Web Resource 0.2",
+  "description": "A signed, linked Agent Web resource discovered and invoked through ANP.",
+  "type": "object",
+  "required": [
+    "@context",
+    "@id",
+    "@type",
+    "agentWeb",
+    "name",
+    "links",
+    "affordances",
+    "provenance",
+    "data",
+    "proof"
+  ],
+  "properties": {
+    "@context": {
+      "oneOf": [
+        { "type": "string", "format": "uri" },
+        { "type": "object" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "type": "string", "format": "uri" },
+              { "type": "object" }
+            ]
+          }
+        }
+      ]
+    },
+    "@id": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "@type": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      ]
+    },
+    "agentWeb": {
+      "type": "object",
+      "required": ["version", "kind"],
+      "properties": {
+        "version": { "const": "0.2" },
+        "kind": {
+          "enum": ["resource", "collection", "service"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "links": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/link" }
+    },
+    "affordances": {
+      "$ref": "#/$defs/affordances"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "data": {
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    },
+    "proof": {
+      "$ref": "#/$defs/proof"
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "link": {
+      "type": "object",
+      "required": ["rel", "href"],
+      "properties": {
+        "rel": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9.-]*$"
+        },
+        "href": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "mediaType": {
+          "type": "string",
+          "pattern": "^[^/\\s]+/[^\\s]+$"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "interface": {
+      "type": "object",
+      "required": ["protocol", "href"],
+      "properties": {
+        "protocol": {
+          "enum": ["ANP", "A2A", "MCP", "HTTP"]
+        },
+        "href": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contentType": {
+          "type": "string",
+          "pattern": "^[^/\\s]+/[^\\s]+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "required": [
+        "description",
+        "input",
+        "output",
+        "safe",
+        "idempotent",
+        "authorizationLevel",
+        "interfaces"
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input": {
+          "type": "object"
+        },
+        "output": {
+          "type": "object"
+        },
+        "safe": {
+          "type": "boolean"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "authorizationLevel": {
+          "enum": ["normal", "user-presence-required"]
+        },
+        "interfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/interface" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "property": {
+      "type": "object",
+      "required": ["description", "schema", "readable", "writable", "observable"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": "object"
+        },
+        "readable": {
+          "type": "boolean"
+        },
+        "writable": {
+          "type": "boolean"
+        },
+        "observable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "required": ["description", "data", "interfaces"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object"
+        },
+        "interfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/interface" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "affordances": {
+      "type": "object",
+      "required": ["properties", "actions", "events"],
+      "properties": {
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/property" }
+        },
+        "actions": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/action" }
+        },
+        "events": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/event" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["publisher", "createdAt", "updatedAt", "canonical"],
+      "properties": {
+        "publisher": {
+          "type": "string",
+          "pattern": "^did:wba:"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "canonical": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "type",
+        "cryptosuite",
+        "verificationMethod",
+        "proofPurpose",
+        "created",
+        "proofValue"
+      ],
+      "properties": {
+        "type": { "const": "DataIntegrityProof" },
+        "cryptosuite": { "const": "eddsa-jcs-2022" },
+        "verificationMethod": {
+          "type": "string",
+          "pattern": "^did:wba:.*#[A-Za-z0-9._:-]+$"
+        },
+        "proofPurpose": { "const": "assertionMethod" },
+        "created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "proofValue": {
+          "type": "string",
+          "pattern": "^z[1-9A-HJ-NP-Za-km-z]+$"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

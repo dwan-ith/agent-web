@@ -1,0 +1,120 @@
+{
+  "name": "agent-web",
+  "services": {
+    "moltbook": {
+      "build": {
+        "context": "..",
+        "dockerfile": "deploy/Dockerfile"
+      },
+      "image": "agent-web-runtime:0.2",
+      "command": [
+        "moltbook_site.cli",
+        "--host", "0.0.0.0",
+        "--port", "8443",
+        "--base-url", "${MOLTBOOK_BASE_URL:?set MOLTBOOK_BASE_URL}",
+        "--identity-directory", "/run/agent-web/identity",
+        "--database", "/var/lib/agent-web/content.db",
+        "--nonce-database", "/var/lib/agent-web/nonces.db",
+        "--authorization-database", "/var/lib/agent-web/authorization.db",
+        "--handle-database", "/var/lib/agent-web/wns.db",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem",
+        "--metrics-token-file", "/run/agent-web/operations/metrics.token",
+        "--operator-token-file", "/run/agent-web/operations/operator.token",
+        "--forecast-entrypoint", "${FORECAST_BASE_URL:?set FORECAST_BASE_URL}/forecast/resources/index.json"
+      ],
+      "ports": ["${MOLTBOOK_PORT:-8443}:8443"],
+      "volumes": [
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/moltbook/identity:/run/agent-web/identity:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/moltbook/tls:/run/agent-web/tls:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/moltbook/operations:/run/agent-web/operations:ro",
+        "${AGENT_WEB_DATA:?set AGENT_WEB_DATA}/moltbook:/var/lib/agent-web"
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=64m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import ssl,urllib.request;c=ssl.create_default_context(cafile='/run/agent-web/tls/ca.pem');c.check_hostname=False;urllib.request.urlopen('https://127.0.0.1:8443/ready',context=c,timeout=3).read()"],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "10s"
+      }
+    },
+    "forecast": {
+      "image": "agent-web-runtime:0.2",
+      "command": [
+        "forecast_site.cli",
+        "--host", "0.0.0.0",
+        "--port", "8543",
+        "--base-url", "${FORECAST_BASE_URL:?set FORECAST_BASE_URL}",
+        "--identity-directory", "/run/agent-web/identity",
+        "--nonce-database", "/var/lib/agent-web/nonces.db",
+        "--handle-database", "/var/lib/agent-web/wns.db",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem",
+        "--metrics-token-file", "/run/agent-web/operations/metrics.token",
+        "--operator-token-file", "/run/agent-web/operations/operator.token",
+        "--moltbook-entrypoint", "${MOLTBOOK_BASE_URL:?set MOLTBOOK_BASE_URL}/moltbook/resources/index.json"
+      ],
+      "ports": ["${FORECAST_PORT:-8543}:8543"],
+      "volumes": [
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/forecast/identity:/run/agent-web/identity:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/forecast/tls:/run/agent-web/tls:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/forecast/operations:/run/agent-web/operations:ro",
+        "${AGENT_WEB_DATA:?set AGENT_WEB_DATA}/forecast:/var/lib/agent-web"
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=64m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import ssl,urllib.request;c=ssl.create_default_context(cafile='/run/agent-web/tls/ca.pem');c.check_hostname=False;urllib.request.urlopen('https://127.0.0.1:8543/ready',context=c,timeout=3).read()"],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "10s"
+      }
+    },
+    "registry": {
+      "image": "agent-web-runtime:0.2",
+      "command": [
+        "registry_site",
+        "serve",
+        "--host", "0.0.0.0",
+        "--port", "8643",
+        "--base-url", "${REGISTRY_BASE_URL:?set REGISTRY_BASE_URL}",
+        "--identity-directory", "/run/agent-web/identity",
+        "--database", "/var/lib/agent-web/registry.db",
+        "--nonce-database", "/var/lib/agent-web/nonces.db",
+        "--handle-database", "/var/lib/agent-web/wns.db",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem"
+        ,"--metrics-token-file", "/run/agent-web/operations/metrics.token"
+        ,"--operator-token-file", "/run/agent-web/operations/operator.token"
+      ],
+      "ports": ["${REGISTRY_PORT:-8643}:8643"],
+      "volumes": [
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/registry/identity:/run/agent-web/identity:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/registry/tls:/run/agent-web/tls:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/registry/operations:/run/agent-web/operations:ro",
+        "${AGENT_WEB_DATA:?set AGENT_WEB_DATA}/registry:/var/lib/agent-web"
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=64m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import ssl,urllib.request;c=ssl.create_default_context(cafile='/run/agent-web/tls/ca.pem');c.check_hostname=False;urllib.request.urlopen('https://127.0.0.1:8643/ready',context=c,timeout=3).read()"],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "10s"
+      }
+    }
+  }
+}

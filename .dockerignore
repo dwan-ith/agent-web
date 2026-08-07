@@ -1,0 +1,15 @@
+.git
+.venv
+node_modules
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/build
+**/dist
+**/*.egg-info
+.agent-web
+*.db
+*.db-shm
+*.db-wal
+deploy/secrets
+deploy/data

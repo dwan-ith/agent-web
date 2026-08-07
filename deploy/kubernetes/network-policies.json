@@ -1,0 +1,101 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {"name": "agent-web-default-deny", "namespace": "agent-web"},
+      "spec": {
+        "podSelector": {"matchLabels": {"app.kubernetes.io/part-of": "agent-web"}},
+        "policyTypes": ["Ingress", "Egress"],
+        "ingress": [],
+        "egress": []
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {"name": "agent-web-gateway-ingress", "namespace": "agent-web"},
+      "spec": {
+        "podSelector": {"matchLabels": {"app.kubernetes.io/part-of": "agent-web"}},
+        "policyTypes": ["Ingress"],
+        "ingress": [{
+          "from": [{
+            "namespaceSelector": {"matchLabels": {"agent-web.io/gateway": "true"}},
+            "podSelector": {"matchLabels": {"app.kubernetes.io/component": "gateway"}}
+          }],
+          "ports": [
+            {"protocol": "TCP", "port": 8443},
+            {"protocol": "TCP", "port": 8543},
+            {"protocol": "TCP", "port": 8643}
+          ]
+        }]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {"name": "agent-web-dns-egress", "namespace": "agent-web"},
+      "spec": {
+        "podSelector": {"matchLabels": {"app.kubernetes.io/part-of": "agent-web"}},
+        "policyTypes": ["Egress"],
+        "egress": [{
+          "to": [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}],
+          "ports": [
+            {"protocol": "UDP", "port": 53},
+            {"protocol": "TCP", "port": 53}
+          ]
+        }]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {"name": "forecast-public-https-egress", "namespace": "agent-web"},
+      "spec": {
+        "podSelector": {"matchLabels": {"app.kubernetes.io/component": "forecast"}},
+        "policyTypes": ["Egress"],
+        "egress": [{
+          "to": [
+            {"ipBlock": {"cidr": "0.0.0.0/0", "except": ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4"]}},
+            {"ipBlock": {"cidr": "::/0", "except": ["::/128", "::1/128", "::ffff:0:0/96", "64:ff9b::/96", "100::/64", "2001:db8::/32", "fc00::/7", "fe80::/10", "ff00::/8"]}}
+          ],
+          "ports": [{"protocol": "TCP", "port": 443}]
+        }]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {"name": "registry-indexer-public-https-egress", "namespace": "agent-web"},
+      "spec": {
+        "podSelector": {"matchLabels": {"app.kubernetes.io/component": "registry-indexer"}},
+        "policyTypes": ["Egress"],
+        "egress": [{
+          "to": [
+            {"ipBlock": {"cidr": "0.0.0.0/0", "except": ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12", "192.0.0.0/24", "192.0.2.0/24", "192.168.0.0/16", "198.18.0.0/15", "198.51.100.0/24", "203.0.113.0/24", "224.0.0.0/4", "240.0.0.0/4"]}},
+            {"ipBlock": {"cidr": "::/0", "except": ["::/128", "::1/128", "::ffff:0:0/96", "64:ff9b::/96", "100::/64", "2001:db8::/32", "fc00::/7", "fe80::/10", "ff00::/8"]}}
+          ],
+          "ports": [{"protocol": "TCP", "port": 443}]
+        }]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {"name": "agent-web-vault-egress", "namespace": "agent-web"},
+      "spec": {
+        "podSelector": {"matchLabels": {"app.kubernetes.io/part-of": "agent-web"}},
+        "policyTypes": ["Egress"],
+        "egress": [{
+          "to": [{
+            "namespaceSelector": {"matchLabels": {"agent-web.io/key-management": "true"}},
+            "podSelector": {"matchLabels": {"app.kubernetes.io/component": "vault"}}
+          }],
+          "ports": [{"protocol": "TCP", "port": 8200}]
+        }]
+      }
+    }
+  ]
+}

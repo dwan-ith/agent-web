@@ -1,0 +1,30 @@
+{
+  "@context": "urn:agent-web:context:0.2",
+  "@type": "AgentWebResource",
+  "agentWeb": {
+    "version": "0.2",
+    "kind": "resource"
+  },
+  "name": "No identity",
+  "links": [],
+  "affordances": {
+    "properties": {},
+    "actions": {},
+    "events": {}
+  },
+  "provenance": {
+    "publisher": "did:wba:example.test:broken:e1_fixture",
+    "createdAt": "2026-07-29T00:00:00Z",
+    "updatedAt": "2026-07-29T00:00:00Z",
+    "canonical": "https://example.test/broken.json"
+  },
+  "data": {},
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "verificationMethod": "did:wba:example.test:broken:e1_fixture#key-1",
+    "proofPurpose": "assertionMethod",
+    "created": "2026-07-29T00:00:00Z",
+    "proofValue": "z1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

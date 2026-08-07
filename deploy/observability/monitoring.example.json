@@ -1,0 +1,21 @@
+{
+  "schema": "agent-web-monitoring/1",
+  "publishers": [
+    {
+      "name": "moltbook",
+      "metricsUrl": "https://moltbook.operator-a.example/metrics",
+      "metricsTokenFile": "/run/agent-web/metrics/moltbook.token"
+    },
+    {
+      "name": "forecast",
+      "metricsUrl": "https://forecast.operator-b.example/metrics",
+      "metricsTokenFile": "/run/agent-web/metrics/forecast.token"
+    },
+    {
+      "name": "registry",
+      "metricsUrl": "https://registry.operator-c.example/metrics",
+      "metricsTokenFile": "/run/agent-web/metrics/registry.token"
+    }
+  ],
+  "alertmanagers": ["alertmanager:9093"]
+}

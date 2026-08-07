@@ -1,0 +1,69 @@
+{
+  "services": {
+    "moltbook": {
+      "command": [
+        "moltbook_site.cli",
+        "--host", "0.0.0.0",
+        "--port", "8443",
+        "--base-url", "${MOLTBOOK_BASE_URL:?set MOLTBOOK_BASE_URL}",
+        "--did-document", "/run/agent-web/identity/did.json",
+        "--access-token-private-key", "/run/agent-web/identity/access-token-key.pem",
+        "--vault-url", "${MOLTBOOK_VAULT_URL:?set MOLTBOOK_VAULT_URL}",
+        "--vault-mount", "${MOLTBOOK_VAULT_MOUNT:-transit}",
+        "--vault-key", "${MOLTBOOK_VAULT_KEY:?set MOLTBOOK_VAULT_KEY}",
+        "--vault-token-file", "/run/agent-web/operations/vault.token",
+        "--database", "/var/lib/agent-web/content.db",
+        "--nonce-database", "/var/lib/agent-web/nonces.db",
+        "--authorization-database", "/var/lib/agent-web/authorization.db",
+        "--handle-database", "/var/lib/agent-web/wns.db",
+        "--metrics-token-file", "/run/agent-web/operations/metrics.token",
+        "--operator-token-file", "/run/agent-web/operations/operator.token",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem",
+        "--forecast-entrypoint", "${FORECAST_BASE_URL:?set FORECAST_BASE_URL}/forecast/resources/index.json"
+      ]
+    },
+    "forecast": {
+      "command": [
+        "forecast_site.cli",
+        "--host", "0.0.0.0",
+        "--port", "8543",
+        "--base-url", "${FORECAST_BASE_URL:?set FORECAST_BASE_URL}",
+        "--did-document", "/run/agent-web/identity/did.json",
+        "--access-token-private-key", "/run/agent-web/identity/access-token-key.pem",
+        "--vault-url", "${FORECAST_VAULT_URL:?set FORECAST_VAULT_URL}",
+        "--vault-mount", "${FORECAST_VAULT_MOUNT:-transit}",
+        "--vault-key", "${FORECAST_VAULT_KEY:?set FORECAST_VAULT_KEY}",
+        "--vault-token-file", "/run/agent-web/operations/vault.token",
+        "--nonce-database", "/var/lib/agent-web/nonces.db",
+        "--handle-database", "/var/lib/agent-web/wns.db",
+        "--metrics-token-file", "/run/agent-web/operations/metrics.token",
+        "--operator-token-file", "/run/agent-web/operations/operator.token",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem",
+        "--moltbook-entrypoint", "${MOLTBOOK_BASE_URL:?set MOLTBOOK_BASE_URL}/moltbook/resources/index.json"
+      ]
+    },
+    "registry": {
+      "command": [
+        "registry_site", "serve",
+        "--host", "0.0.0.0",
+        "--port", "8643",
+        "--base-url", "${REGISTRY_BASE_URL:?set REGISTRY_BASE_URL}",
+        "--did-document", "/run/agent-web/identity/did.json",
+        "--access-token-private-key", "/run/agent-web/identity/access-token-key.pem",
+        "--vault-url", "${REGISTRY_VAULT_URL:?set REGISTRY_VAULT_URL}",
+        "--vault-mount", "${REGISTRY_VAULT_MOUNT:-transit}",
+        "--vault-key", "${REGISTRY_VAULT_KEY:?set REGISTRY_VAULT_KEY}",
+        "--vault-token-file", "/run/agent-web/operations/vault.token",
+        "--database", "/var/lib/agent-web/registry.db",
+        "--nonce-database", "/var/lib/agent-web/nonces.db",
+        "--handle-database", "/var/lib/agent-web/wns.db",
+        "--metrics-token-file", "/run/agent-web/operations/metrics.token",
+        "--operator-token-file", "/run/agent-web/operations/operator.token",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem"
+      ]
+    }
+  }
+}

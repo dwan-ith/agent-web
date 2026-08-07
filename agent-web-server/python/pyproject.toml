@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-web-server"
+version = "0.2.0"
+description = "Publishing toolkit for Agent Web sites over official ANP"
+requires-python = ">=3.11"
+dependencies = [
+  "anp[api]>=0.9.2,<0.10",
+  "libagentweb>=0.2.0",
+  "prometheus-client>=0.25,<0.26",
+]
+
+[project.scripts]
+agent-web-authorize = "agent_web_server.authorization_cli:main"
+agent-web-identity = "agent_web_server.identity_cli:main"
+agent-web-ops = "agent_web_server.operations_cli:main"
+agent-web-handle = "agent_web_server.wns_cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

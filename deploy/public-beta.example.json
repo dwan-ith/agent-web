@@ -1,0 +1,35 @@
+{
+  "schema": "agent-web-public-beta/1",
+  "operators": [
+    {
+      "id": "operator-a",
+      "organization": "Independent Operator A",
+      "securityContact": "mailto:security@operator-a.example",
+      "sites": [{
+        "role": "moltbook",
+        "handle": "moltbook.operator-a.example",
+        "agentDescriptionUrl": "https://operator-a.example/moltbook/ad.json"
+      }]
+    },
+    {
+      "id": "operator-b",
+      "organization": "Independent Operator B",
+      "securityContact": "mailto:security@operator-b.example",
+      "sites": [{
+        "role": "forecast",
+        "handle": "forecast.operator-b.example",
+        "agentDescriptionUrl": "https://operator-b.example/forecast/ad.json"
+      }]
+    },
+    {
+      "id": "operator-c",
+      "organization": "Independent Operator C",
+      "securityContact": "mailto:security@operator-c.example",
+      "sites": [{
+        "role": "registry",
+        "handle": "registry.operator-c.example",
+        "agentDescriptionUrl": "https://operator-c.example/registry/ad.json"
+      }]
+    }
+  ]
+}

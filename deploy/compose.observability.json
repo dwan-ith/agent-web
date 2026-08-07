@@ -1,0 +1,49 @@
+{
+  "name": "agent-web-observability",
+  "services": {
+    "prometheus": {
+      "image": "prom/prometheus:v3.13.0",
+      "user": "65534:65534",
+      "command": [
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+        "--storage.tsdb.retention.time=30d",
+        "--web.enable-lifecycle=false"
+      ],
+      "ports": ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"],
+      "volumes": [
+        "${AGENT_WEB_MONITORING:?set AGENT_WEB_MONITORING}/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
+        "./observability/rules.yml:/etc/prometheus/rules.yml:ro",
+        "${AGENT_WEB_MONITORING:?set AGENT_WEB_MONITORING}/metrics:/run/agent-web/metrics:ro",
+        "prometheus-data:/prometheus"
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "unless-stopped"
+    },
+    "alertmanager": {
+      "image": "prom/alertmanager:v0.33.1",
+      "user": "65534:65534",
+      "command": [
+        "--config.file=/etc/alertmanager/alertmanager.yml",
+        "--storage.path=/alertmanager"
+      ],
+      "volumes": [
+        "./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro",
+        "${AGENT_WEB_MONITORING:?set AGENT_WEB_MONITORING}/alerting:/run/agent-web/alerting:ro",
+        "alertmanager-data:/alertmanager"
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=32m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "unless-stopped"
+    }
+  },
+  "volumes": {
+    "prometheus-data": {},
+    "alertmanager-data": {}
+  }
+}

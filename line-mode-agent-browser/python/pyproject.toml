@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-web-line-browser"
+version = "0.2.0"
+description = "Line-mode browser for Agent Web sites"
+requires-python = ">=3.11"
+dependencies = ["libagentweb>=0.2.0"]
+
+[project.scripts]
+agent-web = "agent_web_line.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

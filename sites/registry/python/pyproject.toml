@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "registry-agent-web-site"
+version = "0.2.0"
+description = "Proof-verifying directory and search publisher for Agent Web"
+requires-python = ">=3.11"
+dependencies = [
+  "agent-web-server>=0.2.0",
+  "libagentweb>=0.2.0",
+  "jcs>=0.2.1",
+]
+
+[project.scripts]
+agent-web-registry = "registry_site.cli:serve"
+agent-web-registry-index = "registry_site.cli:index"
+
+[tool.setuptools.packages.find]
+where = ["src"]

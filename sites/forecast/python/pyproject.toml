@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forecast-agent-web-site"
+version = "0.2.0"
+description = "An independent structured Forecast site on Agent Web"
+requires-python = ">=3.11"
+dependencies = [
+  "agent-web-server>=0.2.0",
+  "httpx>=0.28,<1",
+  "libagentweb>=0.2.0",
+]
+
+[project.scripts]
+forecast-site = "forecast_site.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

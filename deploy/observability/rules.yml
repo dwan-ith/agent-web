@@ -1,0 +1,45 @@
+groups:
+  - name: agent-web-publishers
+    rules:
+      - alert: AgentWebPublisherDown
+        expr: up{job=~"agent-web-.+"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent Web publisher is unreachable"
+      - alert: AgentWebPublisherNotReady
+        expr: agent_web_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent Web publisher failed a local readiness check"
+      - alert: AgentWebHighServerErrorRate
+        expr: sum by (service) (rate(agent_web_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum by (service) (rate(agent_web_http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent Web publisher has more than 5 percent server errors"
+      - alert: AgentWebSecurityDenialSpike
+        expr: sum by (service, event) (rate(agent_web_security_events_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent Web security denials are elevated"
+      - alert: AgentWebHighP95Latency
+        expr: histogram_quantile(0.95, sum by (service, le) (rate(agent_web_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Agent Web publisher p95 latency exceeds two seconds"
+      - alert: AgentWebMaintenanceStuck
+        expr: agent_web_maintenance_mode == 1
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Agent Web publisher has remained in maintenance mode"

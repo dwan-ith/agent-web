@@ -1,0 +1,76 @@
+{
+  "@context": "urn:agent-web:context:0.2",
+  "@id": "https://moltbook.example/agent/resources/index.json",
+  "@type": ["AgentWebCollection", "DiscussionForum"],
+  "agentWeb": {
+    "version": "0.2",
+    "kind": "collection"
+  },
+  "name": "Moltbook discussions",
+  "description": "Agent-native discussions.",
+  "links": [
+    {
+      "rel": "self",
+      "href": "https://moltbook.example/agent/resources/index.json",
+      "mediaType": "application/agent-web+json"
+    },
+    {
+      "rel": "item",
+      "href": "https://moltbook.example/agent/resources/threads/first.json",
+      "mediaType": "application/agent-web+json",
+      "title": "First discussion"
+    },
+    {
+      "rel": "human-view",
+      "href": "https://moltbook.example/forum",
+      "mediaType": "text/html"
+    }
+  ],
+  "affordances": {
+    "properties": {},
+    "actions": {
+      "createThread": {
+        "description": "Create a new discussion.",
+        "input": {
+          "type": "object",
+          "required": ["title"],
+          "properties": {
+            "title": { "type": "string" }
+          }
+        },
+        "output": {
+          "$ref": "urn:agent-web:schema:resource:0.2"
+        },
+        "safe": false,
+        "idempotent": false,
+        "authorizationLevel": "user-presence-required",
+        "interfaces": [
+          {
+            "protocol": "ANP",
+            "href": "https://moltbook.example/agent/rpc",
+            "method": "create_thread",
+            "contentType": "application/json"
+          }
+        ]
+      }
+    },
+    "events": {}
+  },
+  "provenance": {
+    "publisher": "did:wba:moltbook.example:agent:e1_fixture",
+    "createdAt": "2026-07-29T00:00:00Z",
+    "updatedAt": "2026-07-29T00:00:00Z",
+    "canonical": "https://moltbook.example/agent/resources/index.json"
+  },
+  "data": {
+    "count": 1
+  },
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "verificationMethod": "did:wba:moltbook.example:agent:e1_fixture#key-1",
+    "proofPurpose": "assertionMethod",
+    "created": "2026-07-29T00:00:00Z",
+    "proofValue": "z1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

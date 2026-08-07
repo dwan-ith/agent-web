@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: operator-pager
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: operator-pager
+    webhook_configs:
+      - url_file: /run/agent-web/alerting/webhook-url
+        send_resolved: true

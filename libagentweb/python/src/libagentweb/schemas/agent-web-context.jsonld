@@ -1,0 +1,64 @@
+{
+  "@context": {
+    "aw": "urn:agent-web:vocabulary:0.2:",
+    "schema": "https://schema.org/",
+    "name": "schema:name",
+    "description": "schema:description",
+    "agentWeb": "aw:profile",
+    "kind": "aw:kind",
+    "links": {
+      "@id": "aw:link",
+      "@container": "@set"
+    },
+    "rel": "aw:rel",
+    "href": {
+      "@id": "aw:href",
+      "@type": "@id"
+    },
+    "mediaType": "aw:mediaType",
+    "affordances": "aw:affordances",
+    "properties": "aw:properties",
+    "actions": "aw:actions",
+    "events": "aw:events",
+    "interfaces": {
+      "@id": "aw:interface",
+      "@container": "@set"
+    },
+    "protocol": "aw:protocol",
+    "method": "aw:method",
+    "input": "aw:input",
+    "output": "aw:output",
+    "safe": "aw:safe",
+    "idempotent": "aw:idempotent",
+    "authorizationLevel": "aw:authorizationLevel",
+    "provenance": "aw:provenance",
+    "publisher": {
+      "@id": "aw:publisher",
+      "@type": "@id"
+    },
+    "createdAt": {
+      "@id": "schema:dateCreated",
+      "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+    },
+    "updatedAt": {
+      "@id": "schema:dateModified",
+      "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+    },
+    "expiresAt": {
+      "@id": "schema:expires",
+      "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+    },
+    "canonical": {
+      "@id": "aw:canonical",
+      "@type": "@id"
+    },
+    "sources": {
+      "@id": "schema:citation",
+      "@container": "@set",
+      "@type": "@id"
+    },
+    "data": "aw:data",
+    "extensions": "aw:extensions",
+    "proof": "https://w3id.org/security#proof"
+  }
+}
