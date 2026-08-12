@@ -4,9 +4,14 @@
     "moltbook": {
       "build": {
         "context": "..",
-        "dockerfile": "deploy/Dockerfile"
+        "dockerfile": "deploy/Dockerfile",
+        "args": {
+          "PYTHON_BASE_IMAGE": "${PYTHON_BASE_IMAGE:?set PYTHON_BASE_IMAGE to python:3.13.5-slim-bookworm@sha256:<digest>}",
+          "TARGETARCH": "amd64"
+        }
       },
       "image": "agent-web-runtime:0.2",
+      "platform": "linux/amd64",
       "command": [
         "moltbook_site.cli",
         "--host", "0.0.0.0",
@@ -45,6 +50,7 @@
     },
     "forecast": {
       "image": "agent-web-runtime:0.2",
+      "platform": "linux/amd64",
       "command": [
         "forecast_site.cli",
         "--host", "0.0.0.0",
@@ -81,6 +87,7 @@
     },
     "registry": {
       "image": "agent-web-runtime:0.2",
+      "platform": "linux/amd64",
       "command": [
         "registry_site",
         "serve",

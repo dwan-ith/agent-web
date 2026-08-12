@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import ipaddress
+import os
 from pathlib import Path
 
 from cryptography import x509
@@ -122,13 +123,55 @@ def generate_local_tls(
         .sign(ca_key, hashes.SHA256())
     )
 
-    ca_path.write_bytes(ca_cert.public_bytes(serialization.Encoding.PEM))
-    cert_path.write_bytes(leaf_cert.public_bytes(serialization.Encoding.PEM))
-    key_path.write_bytes(
-        leaf_key.private_bytes(
-            serialization.Encoding.PEM,
-            serialization.PrivateFormat.PKCS8,
-            serialization.NoEncryption(),
+    created: list[Path] = []
+    try:
+        _exclusive_write(
+            ca_path,
+            ca_cert.public_bytes(serialization.Encoding.PEM),
+            0o644,
         )
-    )
+        created.append(ca_path)
+        _exclusive_write(
+            cert_path,
+            leaf_cert.public_bytes(serialization.Encoding.PEM),
+            0o644,
+        )
+        created.append(cert_path)
+        _exclusive_write(
+            key_path,
+            leaf_key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            ),
+            0o600,
+        )
+        created.append(key_path)
+    except Exception:
+        for path in created:
+            path.unlink(missing_ok=True)
+        raise
     return TLSMaterial(ca_path, cert_path, key_path)
+
+
+def _exclusive_write(path: Path, content: bytes, mode: int) -> None:
+    """Create one TLS file atomically enough to prevent permissive key modes."""
+
+    descriptor = os.open(
+        path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
+        mode,
+    )
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(path, mode)
+    except Exception:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        path.unlink(missing_ok=True)
+        raise

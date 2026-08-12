@@ -1,0 +1,121 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "urn:agent-web:build-type:pip-wheel-set:v1",
+      "externalParameters": {
+        "command": [
+          "python",
+          "-m",
+          "pip",
+          "wheel",
+          "--no-deps",
+          "--no-build-isolation",
+          "--wheel-dir",
+          "dist",
+          "libagentweb/python",
+          "agent-web-server/python",
+          "sites/moltbook/python",
+          "sites/forecast/python",
+          "sites/registry/python",
+          "line-mode-agent-browser/python",
+          "agent-web-browser/python"
+        ],
+        "packageRoots": [
+          "libagentweb/python",
+          "agent-web-server/python",
+          "sites/moltbook/python",
+          "sites/forecast/python",
+          "sites/registry/python",
+          "line-mode-agent-browser/python",
+          "agent-web-browser/python"
+        ]
+      },
+      "internalParameters": {
+        "provenanceCapture": "post-build-local-observation",
+        "sourceRevision": null
+      },
+      "resolvedDependencies": [
+        {
+          "digest": {
+            "sha256": "ee12f361b581e16a0a191ef4ccc32a75d9a9ae1db05f60aa09d61ed2eda6b546"
+          },
+          "uri": "file:deploy/requirements.lock"
+        },
+        {
+          "digest": {
+            "sha256": "331434ab03e28c5053246f223157bf9555de126a76bee8f92409a28e57894a09"
+          },
+          "uri": "file:wheel-set/manifest.json"
+        },
+        {
+          "digest": {
+            "sha256": "6866e0ab819aa6100fa0bed59104c1cdcc1081a5dec4becf955110844f7e6e64"
+          },
+          "uri": "file:workspace-package-sources"
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": "urn:agent-web:builder:local-workstation:untrusted"
+      },
+      "byproducts": [
+        {
+          "digest": {
+            "sha256": "178003c62ee8d7349022232c5a534589ad63377766e4600d52a968fd3ef6538b"
+          },
+          "name": "agent-web.cdx.json"
+        }
+      ],
+      "metadata": {
+        "invocationId": "urn:sha256:9886962e2dc50dd4e57d82ebfb10b758ec76fc6075bda5ab6d24fbb655f323d3"
+      }
+    }
+  },
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "digest": {
+        "sha256": "86412846c1f9708689ff9b7e3e62c3b92b3dd2fb0332e028396c779eb27caad7"
+      },
+      "name": "agent_web_graphical_browser-0.2.0-py3-none-any.whl"
+    },
+    {
+      "digest": {
+        "sha256": "40d6a7d84ff141162991e1ef1f7ad96c1cf2e28b79c280f2a8cd41bebda16771"
+      },
+      "name": "agent_web_line_browser-0.2.0-py3-none-any.whl"
+    },
+    {
+      "digest": {
+        "sha256": "40c9b8630d2e62a3ec7e936dd025a4d3420f9e96e0af5f4b302fefab079e7908"
+      },
+      "name": "agent_web_server-0.2.0-py3-none-any.whl"
+    },
+    {
+      "digest": {
+        "sha256": "a457a75e569d6b280615ac7df9a77365f930a8bf9a9f9210dada00d5018a7f24"
+      },
+      "name": "forecast_agent_web_site-0.2.0-py3-none-any.whl"
+    },
+    {
+      "digest": {
+        "sha256": "a169d439c3a0ddc1daf4a78a1f25d92b592e46f6066c841e3d650ae1bc6b8da8"
+      },
+      "name": "libagentweb-0.2.0-py3-none-any.whl"
+    },
+    {
+      "digest": {
+        "sha256": "edf836f906c153e10aa7e74011a7db6aaacce17ca6f8fa9d3e1f7115fa0cf43b"
+      },
+      "name": "moltbook_agent_web_site-0.2.0-py3-none-any.whl"
+    },
+    {
+      "digest": {
+        "sha256": "440a3f4ebad47adb4f8c287d29b591f7cdec86e1d12e2ad24fb8feeb05f41adf"
+      },
+      "name": "registry_agent_web_site-0.2.0-py3-none-any.whl"
+    }
+  ]
+}

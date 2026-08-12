@@ -46,6 +46,10 @@ class SecureBoundaryTests(unittest.TestCase):
         async def rpc(request: Request) -> dict[str, str]:
             return {"caller": request.state.did}
 
+        @app.get("/private/resources/nested/deeper/secret.json")
+        async def nested_private_resource() -> dict[str, bool]:
+            return {"secret": True}
+
         self.nonces = install_security(
             app,
             SecurityConfig(
@@ -125,6 +129,10 @@ class SecureBoundaryTests(unittest.TestCase):
             self.client.get("/health", headers={"Host": "evil.test"}).status_code,
             421,
         )
+
+    def test_public_path_wildcards_do_not_cross_path_segments(self) -> None:
+        response = self.client.get("/private/resources/nested/deeper/secret.json")
+        self.assertEqual(response.status_code, 401)
 
 
 if __name__ == "__main__":

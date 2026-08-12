@@ -1,0 +1,110 @@
+{
+  "schema": "agent-web-kubernetes-deployment/1",
+  "namespace": "agent-web",
+  "runtimeImage": "registry.example.invalid/agent-web-runtime@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "storageClassName": "example-csi",
+  "services": {
+    "moltbook": {
+      "baseUrl": "https://moltbook.operator-a.example",
+      "storage": "5Gi",
+      "resources": {
+        "requests": {"cpu": "250m", "memory": "256Mi"},
+        "limits": {"cpu": "1", "memory": "1Gi"}
+      },
+      "identity": {
+        "mode": "vault-transit",
+        "secretName": "moltbook-identity",
+        "didDocumentKey": "did.json",
+        "accessTokenPrivateKeyKey": "access-token-key.pem"
+      },
+      "vault": {
+        "url": "https://vault.agent-web-key-management.svc.cluster.local:8200",
+        "mount": "transit",
+        "key": "moltbook",
+        "tokenSecretName": "moltbook-vault-token",
+        "tokenKey": "token",
+        "caSecretName": "agent-web-vault-ca",
+        "caKey": "ca.pem"
+      },
+      "tls": {
+        "secretName": "moltbook-tls",
+        "certificateKey": "tls.crt",
+        "privateKeyKey": "tls.key",
+        "caKey": "ca.crt"
+      },
+      "operations": {
+        "secretName": "moltbook-operations",
+        "metricsTokenKey": "metrics.token",
+        "operatorTokenKey": "operator.token"
+      }
+    },
+    "forecast": {
+      "baseUrl": "https://forecast.operator-b.example",
+      "storage": "2Gi",
+      "resources": {
+        "requests": {"cpu": "250m", "memory": "256Mi"},
+        "limits": {"cpu": "1", "memory": "1Gi"}
+      },
+      "identity": {
+        "mode": "vault-transit",
+        "secretName": "forecast-identity",
+        "didDocumentKey": "did.json",
+        "accessTokenPrivateKeyKey": "access-token-key.pem"
+      },
+      "vault": {
+        "url": "https://vault.agent-web-key-management.svc.cluster.local:8200",
+        "mount": "transit",
+        "key": "forecast",
+        "tokenSecretName": "forecast-vault-token",
+        "tokenKey": "token",
+        "caSecretName": "agent-web-vault-ca",
+        "caKey": "ca.pem"
+      },
+      "tls": {
+        "secretName": "forecast-tls",
+        "certificateKey": "tls.crt",
+        "privateKeyKey": "tls.key",
+        "caKey": "ca.crt"
+      },
+      "operations": {
+        "secretName": "forecast-operations",
+        "metricsTokenKey": "metrics.token",
+        "operatorTokenKey": "operator.token"
+      }
+    },
+    "registry": {
+      "baseUrl": "https://registry.operator-c.example",
+      "storage": "5Gi",
+      "resources": {
+        "requests": {"cpu": "250m", "memory": "256Mi"},
+        "limits": {"cpu": "1", "memory": "1Gi"}
+      },
+      "identity": {
+        "mode": "vault-transit",
+        "secretName": "registry-identity",
+        "didDocumentKey": "did.json",
+        "accessTokenPrivateKeyKey": "access-token-key.pem"
+      },
+      "vault": {
+        "url": "https://vault.agent-web-key-management.svc.cluster.local:8200",
+        "mount": "transit",
+        "key": "registry",
+        "tokenSecretName": "registry-vault-token",
+        "tokenKey": "token",
+        "caSecretName": "agent-web-vault-ca",
+        "caKey": "ca.pem"
+      },
+      "tls": {
+        "secretName": "registry-tls",
+        "certificateKey": "tls.crt",
+        "privateKeyKey": "tls.key",
+        "caKey": "ca.crt"
+      },
+      "operations": {
+        "secretName": "registry-operations",
+        "metricsTokenKey": "metrics.token",
+        "operatorTokenKey": "operator.token"
+      }
+    }
+  }
+}

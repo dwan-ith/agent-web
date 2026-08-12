@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from fnmatch import fnmatch
+from fnmatch import fnmatchcase
 from pathlib import Path
 import sqlite3
 from threading import Lock
@@ -31,13 +31,14 @@ DEFAULT_PUBLIC_GET_PATHS = (
     "/.well-known/handle/*",
     "/agent-web/0.2",
     "/agent-web/0.2/*",
-    "*/did.json",
+    "**/did.json",
     "*/ad.json",
     "*/interface.json",
     "*/resources/*.json",
     "*/resources/*/*.json",
     "/forum",
     "/forum/*",
+    "/forum/*/*",
     "/weather",
     "/weather/*",
     "/directory",
@@ -178,7 +179,7 @@ def install_security(app: FastAPI, config: SecurityConfig) -> NonceStore:
             public = (
                 request.method in {"GET", "HEAD"}
                 and any(
-                    fnmatch(request.url.path, pattern)
+                    _matches_public_path(request.url.path, pattern)
                     for pattern in config.public_get_paths
                 )
             )
@@ -239,3 +240,28 @@ def install_security(app: FastAPI, config: SecurityConfig) -> NonceStore:
 
 def _problem(status: int, detail: str) -> JSONResponse:
     return JSONResponse(status_code=status, content={"detail": detail})
+
+
+def _matches_public_path(path: str, pattern: str) -> bool:
+    """Match public routes without allowing a wildcard to cross ``/``."""
+
+    path_parts = path.strip("/").split("/")
+    pattern_parts = pattern.strip("/").split("/")
+
+    def matches(path_index: int, pattern_index: int) -> bool:
+        if pattern_index == len(pattern_parts):
+            return path_index == len(path_parts)
+        expected = pattern_parts[pattern_index]
+        if expected == "**":
+            return any(
+                matches(candidate, pattern_index + 1)
+                for candidate in range(path_index, len(path_parts) + 1)
+            )
+        return (
+            path_index < len(path_parts)
+            and bool(path_parts[path_index])
+            and fnmatchcase(path_parts[path_index], expected)
+            and matches(path_index + 1, pattern_index + 1)
+        )
+
+    return matches(0, 0)

@@ -1,0 +1,17 @@
+{
+  "artifactDigestsVerified": true,
+  "containerImageIncluded": false,
+  "cycloneDxVersion": "1.7",
+  "hashLockTarget": "CPython 3.13 / Linux x86_64",
+  "isolatedBuildVerified": false,
+  "notice": "This local, post-build statement binds observed wheel digests and metadata. It is not a signature, trusted-builder attestation, source-revision proof, container SBOM, or SLSA Build Level claim.",
+  "provenanceGeneratedByTrustedBuildPlatform": false,
+  "provenanceSigned": false,
+  "runtimeDependencyArtifactsHashLocked": true,
+  "schema": "agent-web-release-claims/1",
+  "slsaBuildLevelClaimed": 0,
+  "slsaPredicateVersion": "1",
+  "sourceMaterialFiles": 77,
+  "sourceRevisionRecorded": false,
+  "wheelMetadataParsed": true
+}

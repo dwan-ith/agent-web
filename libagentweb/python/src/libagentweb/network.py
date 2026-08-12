@@ -122,6 +122,10 @@ async def request_json(
         raise NetworkPolicyError("Agent Web requests require an absolute HTTPS URL")
     if parsed.username or parsed.password:
         raise NetworkPolicyError("Agent Web URLs must not contain user information")
+    if parsed.fragment:
+        raise NetworkPolicyError(
+            "Agent Web request URLs must not contain a fragment"
+        )
     port = parsed.port or 443
     pinned = await resolve_pinned_addresses(
         parsed.hostname,

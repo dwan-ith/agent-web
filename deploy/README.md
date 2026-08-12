@@ -58,13 +58,20 @@ agent-web-handle `
 ```
 
 Set `MOLTBOOK_BASE_URL`, `FORECAST_BASE_URL`, `REGISTRY_BASE_URL`,
-`AGENT_WEB_SECRETS`, and `AGENT_WEB_DATA`, then:
+`AGENT_WEB_SECRETS`, and `AGENT_WEB_DATA`. Also resolve the exact digest for the
+reviewed Python base image and set it explicitly; there is no mutable fallback:
 
 ```powershell
+$env:PYTHON_BASE_IMAGE = "python:3.13.5-slim-bookworm@sha256:<reviewed-digest>"
 docker compose -f deploy/compose.json build
 docker compose -f deploy/compose.json config
 docker compose -f deploy/compose.json up -d
 ```
+
+The runtime lock targets CPython 3.13 on Linux/amd64 and binds all 51 selected
+wheel files by SHA-256. Compose and the Dockerfile enforce that architecture.
+Generate and review a separate lock for another architecture; do not delete
+hashes to make a cross-architecture build pass.
 
 Issue Moltbook grants against its mounted data directory before allowing a
 caller to mutate:
@@ -158,3 +165,38 @@ validation, exact WNS/DID/Agent Description/resource proof binding, bidirectiona
 cross-operator Moltbook/Forecast links, and Registry admission of both source
 DIDs. Package the reviewed source with `scripts/export_review_bundle.py`; the
 archive explicitly records that creating it is not an external audit.
+
+## Kubernetes
+
+`kubernetes/deployment.example.json` is input to a strict renderer rather than a
+hardcoded cluster manifest. It requires an immutable runtime-image digest and
+emits Restricted pods, single-writer storage and rollouts, separate Secret
+mounts, internal Services, and the default-deny network boundary. See
+`kubernetes/README.md` for rendering and the optional live CNI probe Jobs.
+
+## Release evidence
+
+Generate a [CycloneDX 1.7](https://cyclonedx.org/specification/overview/) SBOM
+and [SLSA-v1-format](https://slsa.dev/spec/v1.2/provenance) subject binding for
+a verified wheel directory:
+
+```powershell
+python scripts\generate_release_evidence.py `
+  --wheel-dir artifacts\wheels-20260806-operations `
+  --output artifacts\release-evidence-20260812-final
+```
+
+The accompanying claims file is intentionally strict: the local post-build
+provenance is unsigned, was not emitted by a trusted isolated build platform,
+has no source revision, contains no container SBOM, and claims SLSA Build Level
+0. A real release must replace those negatives with signed CI/registry evidence.
+
+Include the bound wheels and evidence in the deterministic review archive:
+
+```powershell
+python scripts\export_review_bundle.py `
+  --release-evidence artifacts\release-evidence-20260812-final `
+  --wheel-dir artifacts\wheels-20260806-operations `
+  --requirements-evidence artifacts\requirements-lock-evidence-20260812.json `
+  --output artifacts\agent-web-external-review-20260812.zip
+```

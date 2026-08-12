@@ -1,0 +1,326 @@
+{
+  "artifacts": {
+    "aiohappyeyeballs-2.7.1-py3-none-any.whl": {
+      "bytes": 15038,
+      "project": "aiohappyeyeballs",
+      "sha256": "9243213661e29250eb41368e5daa826fc017156c3b8a11440826b2e3ed376472",
+      "version": "2.7.1"
+    },
+    "aiohttp-3.14.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl": {
+      "bytes": 1789289,
+      "project": "aiohttp",
+      "sha256": "d7d2deec16eeedf55f2c7cf75b521ea3856a5177e123844f8fd0f114ce252cb5",
+      "version": "3.14.3"
+    },
+    "aiosignal-1.4.0-py3-none-any.whl": {
+      "bytes": 7490,
+      "project": "aiosignal",
+      "sha256": "053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e",
+      "version": "1.4.0"
+    },
+    "annotated_doc-0.0.5-py3-none-any.whl": {
+      "bytes": 5302,
+      "project": "annotated-doc",
+      "sha256": "117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101",
+      "version": "0.0.5"
+    },
+    "annotated_types-0.8.0-py3-none-any.whl": {
+      "bytes": 13427,
+      "project": "annotated-types",
+      "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+      "version": "0.8.0"
+    },
+    "anp-0.9.2-py3-none-any.whl": {
+      "bytes": 265409,
+      "project": "anp",
+      "sha256": "5b2c2f7552ada3674b1fe2aad925ab3edac8a158837d7ae4443907a4405cbf32",
+      "version": "0.9.2"
+    },
+    "anyio-4.14.2-py3-none-any.whl": {
+      "bytes": 125813,
+      "project": "anyio",
+      "sha256": "9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494",
+      "version": "4.14.2"
+    },
+    "asn1crypto-1.5.1-py2.py3-none-any.whl": {
+      "bytes": 105045,
+      "project": "asn1crypto",
+      "sha256": "db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67",
+      "version": "1.5.1"
+    },
+    "attrs-26.1.0-py3-none-any.whl": {
+      "bytes": 67548,
+      "project": "attrs",
+      "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+      "version": "26.1.0"
+    },
+    "base58-2.1.1-py3-none-any.whl": {
+      "bytes": 5621,
+      "project": "base58",
+      "sha256": "11a36f4d3ce51dfc1043f3218591ac4eb1ceb172919cebe05b52a5bcc8d245c2",
+      "version": "2.1.1"
+    },
+    "canonicaljson-2.0.0-py3-none-any.whl": {
+      "bytes": 7921,
+      "project": "canonicaljson",
+      "sha256": "c38a315de3b5a0532f1ec1f9153cd3d716abfc565a558d00a4835428a34fca5b",
+      "version": "2.0.0"
+    },
+    "certifi-2026.7.22-py3-none-any.whl": {
+      "bytes": 136983,
+      "project": "certifi",
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+      "version": "2026.7.22"
+    },
+    "cffi-2.1.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl": {
+      "bytes": 221808,
+      "project": "cffi",
+      "sha256": "799416bae98336e400981ff6e532d67d5c709cfb30afb79865a1315f94b0e224",
+      "version": "2.1.0"
+    },
+    "charset_normalizer-3.4.9-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl": {
+      "bytes": 223149,
+      "project": "charset-normalizer",
+      "sha256": "84fd18bcc17526fc2b3c1af7d2b9217d32c9c04448c16ec693b9b4f1985c3d33",
+      "version": "3.4.9"
+    },
+    "click-8.4.2-py3-none-any.whl": {
+      "bytes": 119243,
+      "project": "click",
+      "sha256": "e6f9f66136c816745b9d65817da91d61d957fb16e02e4dcd0552553c5a197b76",
+      "version": "8.4.2"
+    },
+    "colorama-0.4.6-py2.py3-none-any.whl": {
+      "bytes": 25335,
+      "project": "colorama",
+      "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+      "version": "0.4.6"
+    },
+    "cryptography-49.0.0-cp311-abi3-manylinux_2_34_x86_64.whl": {
+      "bytes": 4749290,
+      "project": "cryptography",
+      "sha256": "cbc77da8c523d5abd028635ba850a6966fcee2c82e2bf65a41d1d8afe0f98be9",
+      "version": "49.0.0"
+    },
+    "distro-1.9.0-py3-none-any.whl": {
+      "bytes": 20277,
+      "project": "distro",
+      "sha256": "7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
+      "version": "1.9.0"
+    },
+    "ecdsa-0.19.2-py2.py3-none-any.whl": {
+      "bytes": 150818,
+      "project": "ecdsa",
+      "sha256": "840f5dc5e375c68f36c1a7a5b9caad28f95daa65185c9253c0c08dd952bb7399",
+      "version": "0.19.2"
+    },
+    "fastapi-0.141.0-py3-none-any.whl": {
+      "bytes": 131808,
+      "project": "fastapi",
+      "sha256": "5567705c791fa33202dabd1860df1d1650a7b1bf373378198d7b0675c9574618",
+      "version": "0.141.0"
+    },
+    "frozenlist-1.8.0-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl": {
+      "bytes": 234391,
+      "project": "frozenlist",
+      "sha256": "fb30f9626572a76dfe4293c7194a09fb1fe93ba94c7d4f720dfae3b646b45027",
+      "version": "1.8.0"
+    },
+    "h11-0.16.0-py3-none-any.whl": {
+      "bytes": 37515,
+      "project": "h11",
+      "sha256": "63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86",
+      "version": "0.16.0"
+    },
+    "httpcore-1.0.9-py3-none-any.whl": {
+      "bytes": 78784,
+      "project": "httpcore",
+      "sha256": "2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55",
+      "version": "1.0.9"
+    },
+    "httpx-0.28.1-py3-none-any.whl": {
+      "bytes": 73517,
+      "project": "httpx",
+      "sha256": "d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad",
+      "version": "0.28.1"
+    },
+    "idna-3.18-py3-none-any.whl": {
+      "bytes": 65455,
+      "project": "idna",
+      "sha256": "7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2",
+      "version": "3.18"
+    },
+    "jcs-0.2.1-py3-none-any.whl": {
+      "bytes": 7603,
+      "project": "jcs",
+      "sha256": "e23a3e1de60f832d33cd811bb9c3b3be79219cdf95f63b88f0972732c3fa8476",
+      "version": "0.2.1"
+    },
+    "jiter-0.16.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": {
+      "bytes": 343320,
+      "project": "jiter",
+      "sha256": "c682bea068a90b764577bdb78a60a4c1d1606daf9cd4c893832a37c7cc9d9026",
+      "version": "0.16.0"
+    },
+    "jsonschema-4.26.0-py3-none-any.whl": {
+      "bytes": 90630,
+      "project": "jsonschema",
+      "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
+      "version": "4.26.0"
+    },
+    "jsonschema_specifications-2025.9.1-py3-none-any.whl": {
+      "bytes": 18437,
+      "project": "jsonschema-specifications",
+      "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+      "version": "2025.9.1"
+    },
+    "multidict-6.7.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl": {
+      "bytes": 254277,
+      "project": "multidict",
+      "sha256": "9d624335fd4fa1c08a53f8b4be7676ebde19cd092b3895c421045ca87895b429",
+      "version": "6.7.1"
+    },
+    "openai-2.50.0-py3-none-any.whl": {
+      "bytes": 1650721,
+      "project": "openai",
+      "sha256": "90bdddcc5a2fa529b350fac9c5780d87e5c361dcc6090ab57b0d470b0d7af7fa",
+      "version": "2.50.0"
+    },
+    "prometheus_client-0.25.0-py3-none-any.whl": {
+      "bytes": 64154,
+      "project": "prometheus-client",
+      "sha256": "d5aec89e349a6ec230805d0df882f3807f74fd6c1a2fa86864e3c2279059fed1",
+      "version": "0.25.0"
+    },
+    "propcache-0.5.2-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl": {
+      "bytes": 61534,
+      "project": "propcache",
+      "sha256": "4db0ba63d693afd40d249bd93f842b5f144f8fcbb83de05660373bcf30517b1d",
+      "version": "0.5.2"
+    },
+    "pycparser-3.0-py3-none-any.whl": {
+      "bytes": 48172,
+      "project": "pycparser",
+      "sha256": "b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992",
+      "version": "3.0"
+    },
+    "pydantic-2.13.4-py3-none-any.whl": {
+      "bytes": 472262,
+      "project": "pydantic",
+      "sha256": "45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba",
+      "version": "2.13.4"
+    },
+    "pydantic_core-2.46.4-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": {
+      "bytes": 2094467,
+      "project": "pydantic-core",
+      "sha256": "9551187363ffc0de2a00b2e47c25aeaeb1020b69b668762966df15fc5659dd5a",
+      "version": "2.46.4"
+    },
+    "pyjwt-2.13.0-py3-none-any.whl": {
+      "bytes": 31274,
+      "project": "pyjwt",
+      "sha256": "66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728",
+      "version": "2.13.0"
+    },
+    "python_dotenv-1.2.2-py3-none-any.whl": {
+      "bytes": 22101,
+      "project": "python-dotenv",
+      "sha256": "1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a",
+      "version": "1.2.2"
+    },
+    "referencing-0.37.0-py3-none-any.whl": {
+      "bytes": 26766,
+      "project": "referencing",
+      "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231",
+      "version": "0.37.0"
+    },
+    "requests-2.34.2-py3-none-any.whl": {
+      "bytes": 73075,
+      "project": "requests",
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+      "version": "2.34.2"
+    },
+    "rpds_py-2026.6.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": {
+      "bytes": 365678,
+      "project": "rpds-py",
+      "sha256": "acac386b453c2516111b50985d60ce46e7fadb5ea71ae7b25f4c946935bf27cf",
+      "version": "2026.6.3"
+    },
+    "six-1.17.0-py2.py3-none-any.whl": {
+      "bytes": 11050,
+      "project": "six",
+      "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+      "version": "1.17.0"
+    },
+    "sniffio-1.3.1-py3-none-any.whl": {
+      "bytes": 10235,
+      "project": "sniffio",
+      "sha256": "2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2",
+      "version": "1.3.1"
+    },
+    "starlette-1.3.1-py3-none-any.whl": {
+      "bytes": 73632,
+      "project": "starlette",
+      "sha256": "c7372aae11c3c3f26a42df7bd626cec2f47d03483d261d369516a615a53714c6",
+      "version": "1.3.1"
+    },
+    "tqdm-4.70.0-py3-none-any.whl": {
+      "bytes": 80184,
+      "project": "tqdm",
+      "sha256": "7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+      "version": "4.70.0"
+    },
+    "typing_extensions-4.16.0-py3-none-any.whl": {
+      "bytes": 45571,
+      "project": "typing-extensions",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "version": "4.16.0"
+    },
+    "typing_inspection-0.4.2-py3-none-any.whl": {
+      "bytes": 14611,
+      "project": "typing-inspection",
+      "sha256": "4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7",
+      "version": "0.4.2"
+    },
+    "urllib3-2.7.0-py3-none-any.whl": {
+      "bytes": 131087,
+      "project": "urllib3",
+      "sha256": "9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897",
+      "version": "2.7.0"
+    },
+    "uvicorn-0.52.0-py3-none-any.whl": {
+      "bytes": 79058,
+      "project": "uvicorn",
+      "sha256": "3d887809810b89ed33501bcf0a9aba469b06ecd608158efce04bd6b48d8c9b08",
+      "version": "0.52.0"
+    },
+    "websockets-16.1.1-cp313-cp313-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl": {
+      "bytes": 187197,
+      "project": "websockets",
+      "sha256": "f5d497865f05bb222cab7016c6034542e84e5f29f49c6fd3f4939cda7197b5b8",
+      "version": "16.1.1"
+    },
+    "yarl-1.24.5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl": {
+      "bytes": 110574,
+      "project": "yarl",
+      "sha256": "d46b86567dd4e248c6c159fcbcdcce01e0a5c8a7cd2334a0fff759d0fa075b16",
+      "version": "1.24.5"
+    }
+  },
+  "claims": {
+    "allArtifactHashesMatch": true,
+    "allLockedArtifactsPresent": true,
+    "allWheelNamesAndVersionsMatch": true,
+    "packageIndexOriginAttested": false
+  },
+  "lock": {
+    "path": "deploy/requirements.lock",
+    "sha256": "882ddd26d69c6b1f3f11c3bdf3f5c853a2ecc35f707bb3d5a751515bfe246236"
+  },
+  "schema": "agent-web-requirements-lock-evidence/1",
+  "target": {
+    "architecture": "x86_64",
+    "os": "linux",
+    "python": "CPython 3.13"
+  }
+}

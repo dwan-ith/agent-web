@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import socket
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from libagentweb.network import (
     NetworkPolicyError,
     PinnedResolver,
+    request_json,
     resolve_pinned_addresses,
 )
 
@@ -65,6 +67,16 @@ class PinnedNetworkPolicyTests(unittest.IsolatedAsyncioTestCase):
                 allow_private_networks=False,
                 lookup=lookup,
             )
+
+    async def test_url_fragments_are_rejected_before_dns_or_transport(self) -> None:
+        resolver = AsyncMock()
+        with patch(
+            "libagentweb.network.resolve_pinned_addresses",
+            resolver,
+        ):
+            with self.assertRaisesRegex(NetworkPolicyError, "fragment"):
+                await request_json("https://publisher.example/resource.json#other")
+        resolver.assert_not_awaited()
 
 
 if __name__ == "__main__":

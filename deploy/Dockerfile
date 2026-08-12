@@ -1,4 +1,6 @@
-FROM python:3.13.5-slim-bookworm
+ARG PYTHON_BASE_IMAGE
+FROM ${PYTHON_BASE_IMAGE}
+ARG TARGETARCH
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -7,7 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /opt/agent-web
 
 COPY deploy/requirements.lock /opt/agent-web/deploy/requirements.lock
-RUN python -m pip install --no-cache-dir -r deploy/requirements.lock
+RUN test "${TARGETARCH}" = "amd64" \
+    && python -m pip install --no-cache-dir --require-hashes -r deploy/requirements.lock
 
 COPY libagentweb/python /opt/agent-web/libagentweb/python
 COPY agent-web-server/python /opt/agent-web/agent-web-server/python

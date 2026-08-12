@@ -46,6 +46,10 @@ def main() -> int:
 
     run("Python dependency integrity", [sys.executable, "-m", "pip", "check"])
     run(
+        "unfixed dependency advisory containment",
+        [sys.executable, str(ROOT / "scripts/validate_dependency_policy.py")],
+    )
+    run(
         "isolated deployment contract",
         [sys.executable, str(ROOT / "scripts/validate_deployment.py")],
     )
@@ -56,6 +60,10 @@ def main() -> int:
     run(
         "Kubernetes network policy contract",
         [sys.executable, str(ROOT / "scripts/validate_network_policy.py")],
+    )
+    run(
+        "Kubernetes workload contract",
+        [sys.executable, str(ROOT / "scripts/validate_kubernetes_workloads.py")],
     )
     run(
         "Vault managed-signing deployment contract",
@@ -74,6 +82,10 @@ def main() -> int:
     run(
         "external review bundle contract",
         [sys.executable, str(ROOT / "scripts/validate_review_bundle.py")],
+    )
+    run(
+        "release SBOM and provenance contract",
+        [sys.executable, str(ROOT / "scripts/validate_release_evidence.py")],
     )
     run(
         "libagentweb TypeScript types",

@@ -1,24 +1,52 @@
 # Agent Web
 
-Agent Web is a machine-native, linked information and service layer built over
-the existing [Agent Network Protocol (ANP)](https://github.com/agent-network-protocol/AgentConnect).
-ANP plays the HTTP-like role: discovery, DID-WBA identity, authenticated
-invocation, and interface description. Agent Web adds signed resources, typed
-links, browser navigation, action affordances, provenance-preserving search,
-and human Web bridges.
+**Agent Web** is an experimental reference profile demonstrating a machine-native representation of the Web. Rather than proposing a clean succession to a completely new "Agent Internet", Agent Web makes existing Internet resources natively accessible and actionable to both humans and autonomous agents.
+
+## The Architecture
+
+The current Internet contains immense embedded value: billions of URLs, databases, APIs, identities, commerce systems, and social infrastructures. Recreating this ecosystem entirely inside an independent successor "Agent Internet" incurs enormous migration and switching costs. In contrast, Agent Web encodes a fundamental invariant enabling a significantly cheaper transition: **Human and Agent Web projections read the same canonical store.** There will be many json-native agent websites that won't have **The Bridge** but the switching cost for protocols is too high to replace all the things that exists today.
 
 ```text
-AgentNet       possible future agent-native Internet ecosystem
-    |
-Agent Web      linked machine-native Web built in this repository
-    |
-ANP            discovery, DID-WBA, HTTP signatures, OpenRPC/JSON-RPC
-    |
-Internet       DNS, TLS, TCP/QUIC, IP
+                     INTERNET
+                        │
+                    The Bridge
+                        │
+             ┌──────────┴──────────┐
+             │                     │
+        Human Web              Agent Web
+             │                     │
+        HTML / apps         JSON / links /
+        human actions       typed actions /
+                            provenance
+             │                     │
+           humans                agents
 ```
 
-Agent Web does not invent an `anp:` URL scheme or a `.agent` top-level domain.
-Its resources and DIDs resolve through ordinary HTTPS infrastructure.
+Under this architecture, the underlying resource (e.g. `example.com/product/123`) does not disappear into a disjoint and separate agent network. Instead, it exposes two native representation layers pointing back to the same state. A normal website is a UI/HTML representation for a human; an Agent Web site provides a structured representation for an agent. 
+
+**The Bridge** is the crucial structural mechanism making this coexistence possible. Rather than acting as a simple, bolt-on adapter, The Bridge is a first-class feature of the Agent Web invariant: it is the layer that safely and natively projects existing, canonical web state into a machine-actionable representation (via structured JSON, typed links, actions, and provenance). While entirely new, agent-exclusive platforms can operate without it, the Bridge ensures that decades of existing Internet infrastructure can be seamlessly integrated into the Agent Web without demanding a complete and costly platform migration.
+
+Current autonomous agents—such as OpenClaw or Hermes Agents—are often forced to extract DOM representations aimed at people, relying on brittle inference to observe pages and invoke actions. The Agent Web projection (enabled by The Bridge) offers a dramatically clearer standard contract. It directly exposes what resources exist, their JSON schemas, their canonical state, authorization parameters, and interaction endpoints. 
+
+This topology is highly analogous to the **Deep Web or Dark Web**. Agent Web is not a replacement for standard Internet infrastructure (HTTP/IP); it is an enormous, coexisting information space reached over the same underlying Internet. It provides its specialized population—autonomous machines—with native interfaces, discovery, search, and addressing conventions. 
+
+## Relationship to the Agent Network Protocol (ANP)
+
+While the [Agent Network Protocol (ANP)](https://github.com/agent-network-protocol/AgentConnect) describes an AI-native network positioned as a successor to today's human-centric infrastructure, Agent Web argues the future is a simultaneous parallel projection—and treats ANP as a powerful enabling technology beneath the Agent Web side of the network.
+
+When agents interact directly with other agents or purely machine-oriented data units on the Agent Web, they can utilize ANP as their HTTP-like discovery and structural communication substrate. 
+
+```text
+               Agent Web
+                   │
+           machine-native APIs / actions
+                   │
+                  ANP (communication substrate)
+                   │
+          agent ↔ agent/services
+```
+
+Agent Web does not invent an `anp:` URL scheme or a `.agent` top-level domain. Its resources and DIDs resolve through the ubiquitous and ordinary HTTPS infrastructure.
 
 ## Repository map
 
@@ -82,11 +110,14 @@ The reference implementation now provides:
 - SQLite-backed readiness, bearer-protected low-cardinality Prometheus metrics,
   structured request logs, generated scrape configuration, and alert rules;
 - Kubernetes default-deny ingress/egress policy with narrowly selected public
-  HTTPS and Vault paths, plus semantic static validation;
+  HTTPS and Vault paths, plus a 19-resource production renderer that enforces
+  digest-only images, Restricted pods, one-writer `Recreate` rollouts,
+  `ReadWriteOncePod` storage, and a live cluster/CNI evidence gate;
 - Vault Transit Ed25519 signing for publisher proofs and browser DID-WBA HTTP
   signatures without mounting the DID assertion private key;
 - a live public-CA/WNS/federation gate, incident and recovery runbooks, threat
-  model, and deterministic secret-screened external-review bundle.
+  model, deterministic secret-screened external-review bundle, CycloneDX 1.7
+  wheel SBOM, and explicitly unsigned SLSA-v1-format subject binding.
 
 The identity transition record is local operator evidence. Rotating an `e1_`
 binding key creates a new DID; the WNS Handle must then be rotated with the
@@ -146,20 +177,3 @@ agent-web-registry-index --help
 ```
 
 For the isolated container contract, see [deploy/README.md](deploy/README.md).
-
-## Readiness
-
-The original secure local-reference milestone is complete. The larger target—a
-public, secure, multi-operator Agent Web—is currently **74% ready** under the
-weighted acceptance rubric in [docs/readiness.md](docs/readiness.md).
-
-The remaining 26% is external proof and deeper distributed operation, not
-placeholder code. It requires real operator-owned domains and public CA chains,
-live managed/HSM key custody, WNS operations on public infrastructure, executed
-container/CNI controls, delivered alerts, off-site restore and HA evidence,
-genuinely independent operators, and external security/conformance review.
-This repository supplies gates and runbooks for those claims but does not claim
-they have happened.
-
-AgentNet should be considered only after public Agent Web deployments reveal
-which lower-level ecosystem functions are genuinely missing.
