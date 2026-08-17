@@ -1,100 +1,80 @@
 # Agent Web Resource Profile 0.2
 
-Status: experimental secure reference profile.
+Status: experimental secure Web-native profile, revision 0.2.1.
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are normative.
 
 ## Representation
 
 The media type is `application/agent-web+json` while registration is pursued.
-The normative JSON Schema and JSON-LD context are packaged at:
+This profile is one interoperability component of Agent Web; it does not define
+the entire ecosystem. A conforming site MAY be agent-only and MAY omit every
+human-oriented representation.
+The normative JSON Schema and JSON-LD context are packaged with `libagentweb`.
 
-- `libagentweb.schemas/agent-web-resource.schema.json`
-- `libagentweb.schemas/agent-web-context.jsonld`
+Every resource MUST include an HTTPS identity, semantic type, Agent Web kind,
+typed links, affordance maps, publisher provenance, timestamps, application
+data, and a W3C `DataIntegrityProof` using `eddsa-jcs-2022`.
 
-Every resource MUST include:
+`@id` MUST equal `provenance.canonical` and the transport URL. The proof
+verification method MUST belong to `provenance.publisher`. The publisher MAY be
+an HTTPS controller URL, a `did:web` identifier, or a `did:wba` identifier used
+through the optional compatibility adapter. Core conformance MUST NOT require
+ANP, WNS, or an Agent Description.
 
-- HTTPS `@id`, semantic `@type`, and an Agent Web 0.2 kind;
-- typed `links`;
-- `properties`, `actions`, and `events` affordance maps;
-- `provenance.publisher` as a DID-WBA DID;
-- RFC 3339 creation and update times, exact canonical URL, optional expiry, and
-  optional HTTPS sources;
-- application-specific structured `data`;
-- an ANP Appendix-B `DataIntegrityProof` using `eddsa-jcs-2022` and an
-  `assertionMethod` authorized by the publisher DID.
+Schema validity alone is not proof validity. A consumer MUST obtain an
+origin-authorized controller document, verify assertion-method authorization,
+cryptographically verify the proof, and reject expired resources.
 
-The canonical URL MUST equal `@id`. The proof verification method MUST belong
-to `provenance.publisher`. `updatedAt` MUST NOT precede `createdAt`, and
-`expiresAt`, when present, MUST be later than `updatedAt`.
+## Web discovery
 
-Schema validity alone is not proof validity. A consumer MUST resolve the DID
-document, validate its DID-WBA key binding and proof, verify assertion-method
-authorization, and cryptographically verify the object proof.
+An origin SHOULD publish `/.well-known/agent-web` using
+`application/agent-web-discovery+json`. The document binds:
 
-## Links
+- the publisher controller;
+- the exact Agent Web profile and entry point;
+- the resource media type and optional human view;
+- verification methods and assertion-method authorization.
 
-A link contains a lower-case `rel` and HTTPS `href`. Defined relations include:
+The profile and entry point MUST use the discovery origin. When present, a
+human view MUST use the discovery origin. `humanView` is optional; its absence
+MUST NOT lower conformance or imply an incomplete website. This allows a
+browser to discover and verify a publisher using HTTPS alone. ANP
+Agent Descriptions MAY advertise the same entry point as an optional binding.
 
-- `self`, `item`, `collection`, `next`, and `prev`;
-- `describedby` for an Agent Description;
-- `related` for a cross-site resource graph edge;
-- `human-view` for a human Web projection of the same source state.
+## Links and HTTP
 
-Unknown relations are ignored unless understood. A browser MUST bound bytes,
-time, resource count, redirects, origins, and network destinations.
+A link contains a lower-case relation and HTTPS target. Defined relations
+include `self`, `item`, `collection`, `next`, `prev`, `describedby`, `related`,
+and `human-view`. Unknown relations are ignored unless understood.
+
+Publishers SHOULD expose the Agent Web representation through HTTP content
+negotiation or a typed `Link` with media type `application/agent-web+json`.
+Browsers MUST bound bytes, time, resource count, redirects, origins, and network
+destinations.
 
 ## Actions
 
-An action declares input/output JSON Schemas, `safe`, `idempotent`,
-`authorizationLevel`, and one or more protocol interfaces.
+An action declares input/output JSON Schemas, safety, idempotency,
+authorization level, and one or more protocol interfaces. HTTP is the native
+interface. `ANP`, `MCP`, and `A2A` are optional compatibility bindings.
 
-`authorizationLevel` is:
+For HTTP interfaces, `href` is an HTTPS target and `method` is the HTTP method.
+A safe HTTP action MUST use GET or HEAD. Publisher claims of safety or
+idempotency do not grant authorization and do not override HTTP method
+semantics. `user-presence-required` requires explicit confirmation by an
+interactive browser.
 
-- `normal`: no extra user-presence confirmation is required by this profile;
-- `user-presence-required`: a browser MUST obtain explicit confirmation before
-  invoking the action.
-
-This field is not a complete authorization system. Publishers still enforce
-their own roles, capabilities, quotas, and business policy. Every reference RPC
-call authenticates even when the advertised action is safe.
-
-The ANP interface uses `href` for the HTTPS JSON-RPC endpoint and `method` for
-the OpenRPC method.
-
-## ANP integration
-
-An Agent Description advertises:
-
-```json
-{
-  "agentWeb": {
-    "profile": "https://site.example/agent-web/0.2",
-    "version": "0.2",
-    "entryPoint": "https://site.example/resources/index.json",
-    "resourceMediaType": "application/agent-web+json",
-    "humanView": "https://site.example/"
-  }
-}
-```
-
-The Agent Description remains an ANP document. In the secure profile it also
-carries an object proof from the same DID named by `identifier`, and that DID
-document authorizes the exact Agent Description service URL.
+The present profile does not yet define protocol-neutral client authentication
+for state-changing HTTP actions. Publishers MUST enforce their own
+authentication, capabilities, quotas, and business policy. The reference
+deployment retains its audited ANP HTTP-signature adapter for protected
+mutations until a Web-native binding is specified and tested.
 
 ## Publisher requirements
 
-A conforming secure publisher:
-
-- serves only HTTPS with an operator-controlled certificate;
-- hosts its DID-WBA document at the DID-derived path and publishes an ANP
-  discovery index;
-- protects RPC with DID-WBA HTTP Message Signatures, content digests,
-  timestamp windows, and one-use nonces;
-- disables legacy DID-WBA authentication unless a separately documented
-  compatibility profile is enabled;
-- derives caller identity from verified request context;
-- treats authentication and authorization as different decisions;
-- signs each resource at the publishing boundary;
-- emits an HTML canonical `Link` header for human projections;
-- applies request bounds, auditability, rate controls, and safe error handling.
+A conforming secure publisher serves HTTPS, publishes origin-bound discovery,
+signs every resource at the publishing boundary, emits typed links between
+human and agent representations, distinguishes authentication from
+authorization, and applies request bounds, auditability, rate controls, and
+safe error handling.

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:agent-web:schema:resource:0.2",
   "title": "Agent Web Resource 0.2",
-  "description": "A signed, linked Agent Web resource discovered and invoked through ANP.",
+  "description": "A signed, linked Agent Web resource transported over the ordinary Web.",
   "type": "object",
   "required": [
     "@context",
@@ -121,7 +121,7 @@
       "required": ["protocol", "href"],
       "properties": {
         "protocol": {
-          "enum": ["ANP", "A2A", "MCP", "HTTP"]
+          "enum": ["HTTP", "ANP", "A2A", "MCP"]
         },
         "href": {
           "type": "string",
@@ -135,6 +135,9 @@
         "contentType": {
           "type": "string",
           "pattern": "^[^/\\s]+/[^\\s]+$"
+        },
+        "security": {
+          "enum": ["none", "http-message-signature"]
         }
       },
       "additionalProperties": false
@@ -245,7 +248,10 @@
       "properties": {
         "publisher": {
           "type": "string",
-          "pattern": "^did:wba:"
+          "anyOf": [
+            { "format": "uri", "pattern": "^https://" },
+            { "pattern": "^did:(web|wba):" }
+          ]
         },
         "createdAt": {
           "type": "string",
@@ -291,7 +297,10 @@
         "cryptosuite": { "const": "eddsa-jcs-2022" },
         "verificationMethod": {
           "type": "string",
-          "pattern": "^did:wba:.*#[A-Za-z0-9._:-]+$"
+          "anyOf": [
+            { "format": "uri", "pattern": "^https://.*#[A-Za-z0-9._:-]+$" },
+            { "pattern": "^did:(web|wba):.*#[A-Za-z0-9._:-]+$" }
+          ]
         },
         "proofPurpose": { "const": "assertionMethod" },
         "created": {

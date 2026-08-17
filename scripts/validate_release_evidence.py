@@ -11,7 +11,7 @@ from release_evidence import EVIDENCE_FILES, generate_release_evidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WHEELS = ROOT / "artifacts/wheels-20260806-operations"
+WHEELS = ROOT / "artifacts/wheels-20260813-registry-federation"
 
 
 def _digest(path: Path) -> str:
@@ -51,6 +51,13 @@ def main() -> int:
             for component in sbom["components"]
             if any(prop.get("name") == "agent-web:artifact:filename" for prop in component.get("properties", []))
         }
+        if len(expected_subjects) != 8:
+            raise ValueError("release wheel set must include all eight Agent Web packages")
+        if not any(
+            subject["name"].startswith("native_knowledge_agent_web_site-")
+            for subject in expected_subjects
+        ):
+            raise ValueError("release wheel set omits the native Agent Web site")
         if len(wheel_refs) != len(expected_subjects) or len(component_refs) < 50:
             raise ValueError("SBOM omits wheels or locked runtime dependencies")
         locked_components = [

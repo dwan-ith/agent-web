@@ -12,8 +12,8 @@ from export_review_bundle import ROOT, build_bundle, review_files
 from release_evidence import generate_release_evidence
 
 
-WHEELS = ROOT / "artifacts/wheels-20260806-operations"
-REQUIREMENTS_EVIDENCE = ROOT / "artifacts/requirements-lock-evidence-20260812.json"
+WHEELS = ROOT / "artifacts/wheels-20260813-registry-federation"
+REQUIREMENTS_EVIDENCE = ROOT / "artifacts/requirements-lock-evidence-20260813.json"
 
 
 def main() -> int:

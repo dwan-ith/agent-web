@@ -7,23 +7,17 @@ import json
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from agent_web_server import (
-    PublisherIdentity,
-    active_identity_paths,
-    load_runtime_identity,
-    read_secret_file,
-)
-import uvicorn
-
-from .app import create_app
 from .indexer import RegistryIndexer
+from .federation import RegistryFederator
 from .store import RegistryStore
 
 
 def _identity(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-) -> tuple[PublisherIdentity, Path, Path]:
+) -> tuple[object, Path, Path]:
+    from agent_web_server import PublisherIdentity, active_identity_paths
+
     if args.identity_directory:
         if args.did_document or args.private_key:
             parser.error(
@@ -47,6 +41,10 @@ def _identity_args(parser: argparse.ArgumentParser) -> None:
 
 
 def serve() -> None:
+    from agent_web_server import load_runtime_identity, read_secret_file
+    import uvicorn
+
+    from .app import create_app
     parser = argparse.ArgumentParser(description="Run the Agent Web Registry")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8643)
@@ -114,16 +112,27 @@ def serve() -> None:
 
 def index() -> None:
     parser = argparse.ArgumentParser(
-        description="Proof-verify and atomically index one Agent Web publisher"
+        description=(
+            "Proof-verify and atomically index one Agent Web discovery root; "
+            "ANP Agent Descriptions remain an optional compatibility input"
+        )
     )
     parser.add_argument("--database", required=True)
-    parser.add_argument("--agent-description-url", required=True)
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--discovery-url")
+    target.add_argument("--agent-description-url")
     parser.add_argument("--max-resources", type=int, default=100)
     parser.add_argument("--max-total-bytes", type=int, default=32 * 1024 * 1024)
     parser.add_argument("--allow-private-network", action="store_true")
     _identity_args(parser)
     args = parser.parse_args()
-    _, did_path, key_path = _identity(parser, args)
+    if args.agent_description_url:
+        _, did_path, key_path = _identity(parser, args)
+    else:
+        if args.identity_directory or args.did_document or args.private_key:
+            parser.error("browser identity files are only used by the ANP adapter")
+        did_path = None
+        key_path = None
     database = Path(args.database)
     database.parent.mkdir(parents=True, exist_ok=True)
     store = RegistryStore(database)
@@ -135,8 +144,44 @@ def index() -> None:
             allow_private_networks=args.allow_private_network,
             max_total_bytes=args.max_total_bytes,
         ).index(
-            args.agent_description_url,
+            args.discovery_url or args.agent_description_url,
             max_resources=args.max_resources,
+        )
+        print(json.dumps(result, indent=2))
+    finally:
+        store.close()
+
+
+def federate() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Synchronize Web-native discovery hints from a peer registry, "
+            "independently re-verifying every original publisher"
+        )
+    )
+    parser.add_argument("--database", required=True)
+    parser.add_argument("--peer-discovery-url", required=True)
+    parser.add_argument("--max-sources", type=int, default=100)
+    parser.add_argument("--max-resources-per-source", type=int, default=100)
+    parser.add_argument("--allow-private-network", action="store_true")
+    parser.add_argument("--fail-fast", action="store_true")
+    args = parser.parse_args()
+    database = Path(args.database)
+    database.parent.mkdir(parents=True, exist_ok=True)
+    store = RegistryStore(database)
+    try:
+        indexer = RegistryIndexer(
+            store,
+            allow_private_networks=args.allow_private_network,
+        )
+        result = RegistryFederator(
+            indexer,
+            allow_private_networks=args.allow_private_network,
+        ).sync(
+            args.peer_discovery_url,
+            max_sources=args.max_sources,
+            max_resources_per_source=args.max_resources_per_source,
+            continue_on_error=not args.fail_fast,
         )
         print(json.dumps(result, indent=2))
     finally:

@@ -20,6 +20,7 @@ PACKAGE_ROOTS = (
     "sites/moltbook/python",
     "sites/forecast/python",
     "sites/registry/python",
+    "sites/native-knowledge/python",
     "line-mode-agent-browser/python",
     "agent-web-browser/python",
 )

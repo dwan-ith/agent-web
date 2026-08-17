@@ -174,6 +174,54 @@ def anp_action(
     }
 
 
+def http_action(
+    *,
+    description: str,
+    url: str,
+    method: str,
+    input_schema: Mapping[str, Any],
+    output_schema: Mapping[str, Any],
+    safe: bool,
+    idempotent: bool,
+    authorization_level: str,
+    content_type: str = "application/json",
+    security: str = "none",
+) -> dict[str, Any]:
+    """Describe an action using ordinary HTTP semantics.
+
+    This is the protocol-neutral default. ANP, MCP, A2A, and other bindings
+    can be advertised as additional interfaces without changing the resource
+    model.
+    """
+
+    if authorization_level not in {"normal", "user-presence-required"}:
+        raise ValueError("authorization_level is not recognized")
+    normalized_method = method.upper()
+    if normalized_method not in {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}:
+        raise ValueError("unsupported HTTP action method")
+    if safe and normalized_method not in {"GET", "HEAD"}:
+        raise ValueError("safe HTTP actions must use GET or HEAD")
+    if security not in {"none", "http-message-signature"}:
+        raise ValueError("unsupported HTTP action security profile")
+    interface = {
+        "protocol": "HTTP",
+        "href": url,
+        "method": normalized_method,
+        "contentType": content_type,
+    }
+    if security != "none":
+        interface["security"] = security
+    return {
+        "description": description,
+        "input": deepcopy(dict(input_schema)),
+        "output": deepcopy(dict(output_schema)),
+        "safe": safe,
+        "idempotent": idempotent,
+        "authorizationLevel": authorization_level,
+        "interfaces": [interface],
+    }
+
+
 def _proof_issuer(document: Mapping[str, Any]) -> str:
     method = str(document["proof"]["verificationMethod"])
     return method.split("#", 1)[0]

@@ -75,19 +75,28 @@ class RegistryStore:
     def replace_verified_site(
         self,
         *,
-        agent_description_url: str,
+        agent_description_url: str | None = None,
+        discovery_url: str | None = None,
         description: Mapping[str, Any],
         resources: list[Mapping[str, Any]],
         verified_at: str | None = None,
     ) -> int:
         """Atomically replace one publisher snapshot after proof verification."""
 
-        publisher = description.get("identifier")
-        if not isinstance(publisher, str) or not publisher.startswith("did:wba:"):
-            raise ValueError("verified Agent Description has no did:wba identifier")
+        endpoint = discovery_url or agent_description_url
+        if endpoint is None or (discovery_url and agent_description_url):
+            raise ValueError("provide exactly one verified discovery endpoint")
+
+        publisher = description.get("publisher", description.get("identifier"))
+        if not isinstance(publisher, str) or not (
+            publisher.startswith("https://")
+            or publisher.startswith("did:web:")
+            or publisher.startswith("did:wba:")
+        ):
+            raise ValueError("verified publisher descriptor has no supported identifier")
         name = description.get("name")
         if not isinstance(name, str) or not name.strip():
-            raise ValueError("verified Agent Description has no name")
+            raise ValueError("verified publisher descriptor has no name")
         if not resources:
             raise ValueError("a verified site snapshot must contain resources")
         timestamp = verified_at or utc_now()
@@ -112,7 +121,7 @@ class RegistryStore:
             prepared.append(
                 (
                     resource_url,
-                    agent_description_url,
+                    endpoint,
                     publisher,
                     resource["name"],
                     resource["description"],
@@ -147,7 +156,7 @@ class RegistryStore:
                         verified_at = excluded.verified_at
                     """,
                     (
-                        agent_description_url,
+                        endpoint,
                         publisher,
                         name,
                         description_json,
@@ -159,7 +168,7 @@ class RegistryStore:
                     DELETE FROM registry_resources
                     WHERE agent_description_url = ?
                     """,
-                    (agent_description_url,),
+                    (endpoint,),
                 )
                 self._connection.executemany(
                     """
@@ -191,16 +200,22 @@ class RegistryStore:
                 ORDER BY lower(s.name), s.agent_description_url
                 """
             ).fetchall()
-        return [
-            {
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            site = {
                 "agentDescription": row["agent_description_url"],
+                "discoveryUrl": row["agent_description_url"],
                 "publisher": row["publisher_did"],
                 "name": row["name"],
                 "verifiedAt": row["verified_at"],
                 "resourceCount": row["resource_count"],
             }
-            for row in rows
-        ]
+            if str(row["agent_description_url"]).endswith(
+                "/.well-known/agent-web"
+            ):
+                site.pop("agentDescription")
+            result.append(site)
+        return result
 
     def search(self, query: str, *, limit: int = 20) -> list[dict[str, Any]]:
         query = query.strip()
@@ -256,7 +271,7 @@ class RegistryStore:
             "types": json.loads(row["types_json"]),
             "source": {
                 "resource": row["resource_url"],
-                "agentDescription": row["agent_description_url"],
+                "discoveryUrl": row["agent_description_url"],
                 "publisher": row["publisher_did"],
                 "updatedAt": row["source_updated_at"],
                 "expiresAt": row["source_expires_at"],

@@ -85,6 +85,39 @@
         "start_period": "10s"
       }
     },
+    "native-knowledge": {
+      "image": "agent-web-runtime:0.2",
+      "platform": "linux/amd64",
+      "command": [
+        "native_knowledge_site.cli",
+        "--host", "0.0.0.0",
+        "--port", "8843",
+        "--base-url", "${NATIVE_KNOWLEDGE_BASE_URL:?set NATIVE_KNOWLEDGE_BASE_URL}",
+          "--database", "/var/lib/agent-web/knowledge.db",
+          "--replay-database", "/var/lib/agent-web/http-replays.db",
+          "--signing-key", "/run/agent-web/identity/signing-key.pem",
+        "--tls-certificate", "/run/agent-web/tls/cert.pem",
+        "--tls-private-key", "/run/agent-web/tls/key.pem"
+      ],
+      "ports": ["${NATIVE_KNOWLEDGE_PORT:-8843}:8843"],
+      "volumes": [
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/native-knowledge/identity:/run/agent-web/identity:ro",
+        "${AGENT_WEB_SECRETS:?set AGENT_WEB_SECRETS}/native-knowledge/tls:/run/agent-web/tls:ro",
+        "${AGENT_WEB_DATA:?set AGENT_WEB_DATA}/native-knowledge:/var/lib/agent-web"
+      ],
+      "read_only": true,
+      "tmpfs": ["/tmp:rw,noexec,nosuid,size=64m"],
+      "cap_drop": ["ALL"],
+      "security_opt": ["no-new-privileges:true"],
+      "restart": "unless-stopped",
+      "healthcheck": {
+        "test": ["CMD", "python", "-c", "import ssl,urllib.request;c=ssl.create_default_context(cafile='/run/agent-web/tls/ca.pem');c.check_hostname=False;urllib.request.urlopen('https://127.0.0.1:8843/ready',context=c,timeout=3).read()"],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "10s"
+      }
+    },
     "registry": {
       "image": "agent-web-runtime:0.2",
       "platform": "linux/amd64",

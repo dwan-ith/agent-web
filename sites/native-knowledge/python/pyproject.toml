@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "native-knowledge-agent-web-site"
+version = "0.1.0"
+description = "Agent-only knowledge publisher with no HTML or ANP dependency"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.135,<1",
+  "libagentweb>=0.2.1",
+  "uvicorn>=0.41,<1",
+]
+
+[project.scripts]
+agent-web-native-knowledge = "native_knowledge_site.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

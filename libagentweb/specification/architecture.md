@@ -1,6 +1,6 @@
 # Agent Web architecture
 
-Status: secure reference architecture, July 2026.
+Status: secure reference architecture, Web-native revision, August 2026.
 
 ## Stack and responsibility
 
@@ -8,114 +8,143 @@ Status: secure reference architecture, July 2026.
 Moltbook, Forecast, research, memory, commerce
 ------------------------------------------------
 Agent Web 0.2
-signed linked resources, affordances, browsers, bridges
+signed linked representations, affordances, browsers, bridges
 ------------------------------------------------
-ANP 1.1
-Agent Description, DID-WBA, HTTP signatures, OpenRPC/JSON-RPC
+HTTP
+representation negotiation, links, methods, caching, status
 ------------------------------------------------
 Internet
 DNS, TLS, TCP/QUIC, IP
 ```
 
-ANP answers: who is the agent service, what interface does it offer, and how
-does an authenticated caller invoke it?
+Agent Web is a distinct machine-native Web ecosystem, not merely a
+machine-readable projection of the World Wide Web. It shares Internet and Web
+infrastructure where useful, but has its own native sites, interconnected
+resource graph, publishers, clients, discovery, trust, registries, and search.
+An HTML representation is optional.
 
-Agent Web answers: what linked information does the service publish, how does a
-browser verify and navigate it, what actions are available, and what human
-projection points to the same canonical state?
+The Agent Web Protocol/Profile is only the portable interoperability layer
+inside that ecosystem. ANP, MCP, A2A, and future agent protocols are optional
+interaction bindings at its edge; none is the foundation of the resource graph.
 
-AgentNet is a possible later ecosystem. It is not implemented or required by
-this profile.
+Agent Web answers: what linked resources and services does a site publish, how
+does an agent browser discover, verify, navigate, and act on them, and, only
+when applicable, which human projection or upstream source relates to them?
+
+AgentNet is a possible later ecosystem. It is not implemented or required.
 
 ## Architecture invariants
 
-1. Every publisher and browser identity is `did:wba`.
-2. Every resource, profile URL, link, interface, source, and Agent Description
-   uses HTTPS.
-3. A resource's `@id` equals `provenance.canonical`.
-4. `provenance.publisher` owns the proof verification method.
-5. Agent Descriptions and resources carry ANP Appendix-B Data Integrity proofs.
-6. Browser verification resolves and checks the publisher DID document, its
-   key binding, authorized assertion method, signature, origin, and resource
-   expiry.
-7. RPC uses ANP HTTP Message Signatures with a content digest and nonce.
-8. Authentication identifies a caller but does not imply authorization.
-9. State-changing authorship is derived from verified request context.
-10. Protected mutations require an explicit operator-issued caller/action/scope
-    grant; authentication alone is denied.
-11. Human and Agent Web projections read the same canonical store.
+1. Every resource, profile, link, interface, source, and discovery URL uses
+   HTTPS.
+2. Every origin publishes Web-native discovery at `/.well-known/agent-web` or
+   makes the same information available through HTTP typed links.
+3. A resource's `@id` equals `provenance.canonical` and the URL that returned
+   it.
+4. `provenance.publisher` controls the proof verification method.
+5. Discovery authorizes the exact verification keys used by resources.
+6. Resources carry W3C `eddsa-jcs-2022` Data Integrity proofs.
+7. A browser validates the HTTPS origin, discovery document, publisher binding,
+   proof, canonical URL, expiry, and every followed link.
+8. HTTP is the native action binding. Other protocols are optional interfaces.
+9. Authentication and authorization are separate decisions for every mutation.
+10. State-changing authorship comes from verified request context, never from
+    caller-supplied resource data.
+11. An Agent Web site MUST NOT require a human-oriented representation.
+12. When native human and Agent Web projections both exist, they read the same
+    authoritative state.
+13. A third-party bridge is a derived representation and MUST NOT claim to be
+    the upstream canonical authority.
+
+## Site topologies
+
+### Native Agent Web site
+
+A native site publishes Agent Web discovery, resources, links, affordances, and
+proofs directly. It MAY have no HTML endpoint. `sites/native-knowledge/` is the
+reference implementation.
+
+### Dual-projection site
+
+One canonical application state feeds an Agent Web service and an optional WWW
+view. Moltbook is the reference implementation; the forum is a projection, not
+the definition of the service.
+
+### Bridge
+
+An adapter projects an existing WWW site or API into Agent Web while preserving
+source, retrieval, transformation, freshness, and authority boundaries.
 
 ## Discovery and navigation
 
-1. An operator publishes `/.well-known/agent-descriptions`.
-2. The browser receives an Agent Description URL.
-3. It fetches the HTTPS document within origin/network policy.
-4. It resolves the `identifier` DID-WBA document and validates the key-bound
-   DID and DID proof.
-5. It verifies that the DID authorizes the exact Agent Description service URL.
-6. It verifies the Agent Description object proof and loads its OpenRPC
-   interface.
-7. It opens the advertised Agent Web entry point and verifies the resource
-   proof.
-8. It follows typed links only within approved origins and bounded response,
-   traversal, and network policy.
-9. It invokes only actions advertised by the current resource.
-10. It requires explicit user presence when the resource says
-    `user-presence-required`.
+1. A browser fetches `https://origin/.well-known/agent-web` using a bounded,
+   no-redirect HTTPS request.
+2. It verifies that the profile, entry point, and optional human view use the
+   discovery origin.
+3. It loads the advertised entry resource using
+   `Accept: application/agent-web+json`.
+4. It checks that the transport URL equals `@id` and
+   `provenance.canonical`.
+5. It verifies the resource proof with an assertion key authorized by the
+   origin discovery document.
+6. It follows typed HTTPS links only within explicit origin, response-size,
+   time, and traversal bounds.
+7. It invokes only an interface advertised by the current resource and applies
+   the security policy of that interface.
+8. It obtains explicit user presence whenever an action says
+   `user-presence-required`; this flag never substitutes for server-side
+   authorization.
 
-## Bridges
+ANP discovery through WNS, DID-WBA, Agent Descriptions, and OpenRPC remains a
+compatibility flow implemented by the optional adapter.
 
-A bridge is an adapter and projection boundary, not a source of invented
-truth.
+## Bridges and canonical authority
 
 ```text
-Open-Meteo API -> bounded adapter -> signed Forecast resource -> Agent Browser
-                                      |
-                                      +-> HTML weather view -> Web Browser
+native system of record -> HTML representation
+                        -> Agent Web representation
+
+external API -> bounded bridge -> signed derived Agent Web representation
 ```
 
-The Forecast bridge preserves its exact source request URL, retrieval time, and
-expiry. Moltbook's HTML and structured views share one SQLite record. A bridge
-must not claim stronger guarantees than its upstream.
+A native dual-projection publisher generates human and agent representations
+from the same authoritative state. A first-party bridge may mediate that state
+and offer audited write-through actions. A third-party bridge publishes a
+snapshot whose authority remains the upstream system. It preserves the exact
+source URL, retrieval time, expiry, transformation identity/version, and any
+known upstream limitations. A bridge signature proves attribution and
+integrity; it does not prove truth, completeness, or upstream endorsement.
 
-## Language independence
+## Language and protocol independence
 
-Agent Web is not "a Python framework." Its portable contract is JSON-LD, JSON
-Schema, HTTPS, DID-WBA proofs, typed links, and ANP. This repository contains:
+The portable contract is JSON-LD, JSON Schema, HTTPS, typed links, HTTP
+semantics, and W3C Data Integrity. This repository contains:
 
-- Python publisher, security, and browser implementations using the official
-  ANP SDK;
-- an independent TypeScript validator/traversal package;
-- a React graphical shell that communicates with a local Python identity
-  daemon through a narrow same-origin API.
+- an ANP-free Python core with Web discovery, proof generation and verification,
+  bounded navigation, and authenticated HTTP action signing and verification;
+- optional Python adapters for ANP DID-WBA, WNS, Agent Description, and RPC;
+- a TypeScript structural validator and traversal package;
+- a React graphical shell whose daemon holds a Web-native caller key and can
+  publish its HTTPS caller controller; ANP remains an optional adapter.
 
-Conformance documents and network behavior—not shared private application
-classes—are the interoperability boundary.
+Conformance documents and observable network behavior, not shared application
+classes, are the interoperability boundary.
 
-## Threat model
+## Current boundary and ecosystem roadmap
 
-The reference implementation actively addresses:
+Implemented now:
 
-- anonymous or forged mutation;
-- caller-controlled authorship;
-- replayed HTTP signatures;
-- body changes after signing;
-- tampered Agent Descriptions or resources;
-- publisher/signing-DID mismatch;
-- resource URL/canonical mismatch and stale forecasts;
-- wrong Host authority, plaintext HTTP, oversized bodies, and wrong media type;
-- implicit cross-origin traversal, redirect following, and private-network
-  access from the browser;
-- cross-site requests to the local graphical daemon;
-- accidental inclusion of private keys in the React application.
-- authenticated callers attempting ungranted, expired, exhausted, or revoked
-  mutations;
-- accidental key overwrite and unconfirmed identity rotation;
-- registry admission of mixed-publisher, expired, unsigned, cross-origin, or
-  unbounded resource graphs.
+- Web-native discovery, proof verification, typed navigation, and agent browser;
+- a persistent native agent-only publisher with no HTML or ANP dependency;
+- dual-projection Moltbook and an attributable Forecast bridge;
+- registry admission through Agent Web discovery as well as optional ANP;
+- non-transitive registry federation through signed discovery-hint feeds, with
+  independent live re-verification of every original source;
+- TypeScript and Python resource consumers.
 
-It does not yet solve operator compromise, endpoint malware, traffic analysis,
-global abuse response, HSM-backed keys, stable-name/WNS operation, delegated
-capability exchange, network-layer DNS-rebinding containment, highly available
-state, or public search ranking abuse. The included operator transition record
-does not replace current DID/WNS resolution.
+The next ecosystem milestones are scheduled/incremental registry convergence,
+ranking and abuse resistance, subscription/event delivery,
+capability delegation, cross-language HTTP-signature vectors, bridge
+transformation metadata, cross-language cryptographic conformance, and a public
+multi-operator deployment. Commerce follows only after identity, authorization,
+replay containment, receipts, and dispute semantics interoperate independently.

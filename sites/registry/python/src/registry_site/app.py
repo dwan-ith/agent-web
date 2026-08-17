@@ -7,7 +7,7 @@ from hashlib import sha256
 from html import escape
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 from agent_web_server import (
     PublisherIdentity,
@@ -140,12 +140,22 @@ def _build_agent(
                             "href": f"{base_url}/directory",
                             "mediaType": "text/html",
                         },
+                        {
+                            "rel": "registry-federation",
+                            "href": f"{base_url}/registry/resources/federation.json",
+                            "mediaType": RESOURCE_MEDIA_TYPE,
+                            "title": "Non-transitive registry source feed",
+                        },
                     ]
                     + [
                         {
                             "rel": "source",
-                            "href": site["agentDescription"],
-                            "mediaType": "application/ld+json",
+                            "href": site["discoveryUrl"],
+                            "mediaType": (
+                                "application/agent-web-discovery+json"
+                                if "agentDescription" not in site
+                                else "application/ld+json"
+                            ),
                             "title": site["name"],
                         }
                         for site in sites
@@ -161,7 +171,8 @@ def _build_agent(
                         "counts": store.counts(),
                         "sites": sites,
                         "admission": (
-                            "live DID-WBA and eddsa-jcs-2022 proof verification"
+                            "live Agent Web discovery and eddsa-jcs-2022 proof "
+                            "verification; optional ANP compatibility"
                         ),
                     },
                 },
@@ -232,6 +243,59 @@ def _build_agent(
                 },
             )
 
+        def federation_feed_resource(self) -> dict[str, Any]:
+            resource_id = f"{base_url}/registry/resources/federation.json"
+            # ANP Agent Description roots are intentionally excluded. Core
+            # federation exchanges only Web-native discovery roots.
+            sources = [
+                site for site in store.sites()
+                if _is_web_discovery_root(str(site["discoveryUrl"]))
+            ]
+            return _sign(
+                identity,
+                {
+                    "@context": f"{base_url}/agent-web/0.2/context.jsonld",
+                    "@id": resource_id,
+                    "@type": ["AgentWebCollection", "RegistrySourceFeed"],
+                    "agentWeb": {"version": AGENT_WEB_VERSION, "kind": "collection"},
+                    "name": "Agent Web Registry source feed",
+                    "description": (
+                        "Non-transitive discovery hints; receiving registries "
+                        "must independently verify every source publisher."
+                    ),
+                    "links": [
+                        {"rel": "self", "href": resource_id, "mediaType": RESOURCE_MEDIA_TYPE},
+                        {"rel": "collection", "href": f"{base_url}/registry/resources/index.json", "mediaType": RESOURCE_MEDIA_TYPE},
+                    ] + [
+                        {
+                            "rel": "source",
+                            "href": site["discoveryUrl"],
+                            "mediaType": "application/agent-web-discovery+json",
+                            "title": site["name"],
+                        }
+                        for site in sources
+                    ],
+                    "affordances": empty_affordances(),
+                    "provenance": {
+                        "publisher": identity.did,
+                        "createdAt": created_at,
+                        "updatedAt": _now(),
+                        "canonical": resource_id,
+                    },
+                    "data": {
+                        "sourceCount": len(sources),
+                        "verificationRequired": "independent-live-source-verification",
+                        "transitiveTrust": False,
+                    },
+                    "extensions": {
+                        "registryFederation": {
+                            "profile": "urn:agent-web:registry-federation:0.1",
+                            "containsAssertions": False,
+                        }
+                    },
+                },
+            )
+
     return RegistryAgent()
 
 
@@ -261,7 +325,13 @@ def create_app(
         redoc_url=None,
     )
     app.include_router(agent.router())
-    mount_agent_web_profile(app, base_url)
+    mount_agent_web_profile(
+        app,
+        base_url,
+        entry_point=f"{base_url}/registry/resources/index.json",
+        human_view=f"{base_url}/directory",
+        controller_document=identity.did_document,
+    )
     mount_identity(
         app,
         identity,
@@ -292,6 +362,10 @@ def create_app(
         limit: int = Query(default=20, ge=1, le=100),
     ) -> JSONResponse:
         return resource_response(agent.search_resource(q, limit))
+
+    @app.get("/registry/resources/federation.json")
+    async def federation_feed() -> JSONResponse:
+        return resource_response(agent.federation_feed_resource())
 
     @app.get("/directory", response_class=HTMLResponse)
     async def directory(q: str = "") -> HTMLResponse:
@@ -344,6 +418,19 @@ def _sign(
     document: dict[str, Any],
 ) -> dict[str, Any]:
     return identity.sign_resource(document)
+
+
+def _is_web_discovery_root(url: str) -> bool:
+    parsed = urlsplit(url)
+    return (
+        parsed.scheme == "https"
+        and bool(parsed.hostname)
+        and not parsed.username
+        and not parsed.password
+        and parsed.path == "/.well-known/agent-web"
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 def _render_directory(

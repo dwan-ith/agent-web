@@ -343,7 +343,13 @@ def create_app(
         redoc_url=None,
     )
     app.include_router(agent.router())
-    mount_agent_web_profile(app, base_url)
+    mount_agent_web_profile(
+        app,
+        base_url,
+        entry_point=f"{base_url}/moltbook/resources/index.json",
+        human_view=f"{base_url}/forum",
+        controller_document=identity.did_document,
+    )
     mount_identity(
         app,
         identity,

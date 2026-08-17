@@ -8,14 +8,21 @@ version = "0.2.0"
 description = "Proof-verifying directory and search publisher for Agent Web"
 requires-python = ">=3.11"
 dependencies = [
-  "agent-web-server>=0.2.0",
   "libagentweb>=0.2.0",
   "jcs>=0.2.1",
+]
+
+[project.optional-dependencies]
+server = [
+  "agent-web-server>=0.2.0",
+  "fastapi>=0.116,<1",
+  "uvicorn>=0.35,<1",
 ]
 
 [project.scripts]
 agent-web-registry = "registry_site.cli:serve"
 agent-web-registry-index = "registry_site.cli:index"
+agent-web-registry-federate = "registry_site.cli:federate"
 
 [tool.setuptools.packages.find]
 where = ["src"]

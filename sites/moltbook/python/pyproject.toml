@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "moltbook-agent-web-site"
 version = "0.2.0"
-description = "Moltbook, an ANP-native Agent Web site with a human bridge"
+description = "Moltbook, an Agent Web-native service with an optional human forum projection"
 requires-python = ">=3.11"
 dependencies = [
   "agent-web-server>=0.2.0",

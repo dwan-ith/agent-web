@@ -11,9 +11,24 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(label: str, command: list[str], cwd: Path = ROOT) -> None:
+def run(
+    label: str,
+    command: list[str],
+    cwd: Path = ROOT,
+    *,
+    python_path: Path | None = None,
+) -> None:
     print(f"\n== {label} ==", flush=True)
-    subprocess.run(command, cwd=cwd, check=True)
+    environment = None
+    if python_path is not None:
+        import os
+
+        environment = os.environ.copy()
+        existing = environment.get("PYTHONPATH")
+        environment["PYTHONPATH"] = str(python_path) + (
+            os.pathsep + existing if existing else ""
+        )
+    subprocess.run(command, cwd=cwd, check=True, env=environment)
 
 
 def main() -> int:
@@ -22,15 +37,24 @@ def main() -> int:
         raise RuntimeError("npm is required for TypeScript verification")
 
     python_suites = [
-        ("libagentweb Python", ROOT / "libagentweb/python/tests"),
-        ("publisher security", ROOT / "agent-web-server/python/tests"),
-        ("Moltbook site", ROOT / "sites/moltbook/python/tests"),
-        ("Forecast bridge", ROOT / "sites/forecast/python/tests"),
-        ("Registry search", ROOT / "sites/registry/python/tests"),
-        ("graphical browser daemon", ROOT / "agent-web-browser/python/tests"),
-        ("secure live network", ROOT / "acceptance/python"),
+        ("libagentweb Python", ROOT / "libagentweb/python/tests", None),
+        ("publisher security", ROOT / "agent-web-server/python/tests", None),
+        ("Moltbook site", ROOT / "sites/moltbook/python/tests", None),
+        ("Forecast bridge", ROOT / "sites/forecast/python/tests", None),
+        ("Registry search", ROOT / "sites/registry/python/tests", None),
+        (
+            "native agent-only site",
+            ROOT / "sites/native-knowledge/python/tests",
+            ROOT / "sites/native-knowledge/python/src",
+        ),
+        ("graphical browser daemon", ROOT / "agent-web-browser/python/tests", None),
+        (
+            "secure live network",
+            ROOT / "acceptance/python",
+            ROOT / "sites/native-knowledge/python/src",
+        ),
     ]
-    for label, suite in python_suites:
+    for label, suite, python_path in python_suites:
         run(
             label,
             [
@@ -42,7 +66,13 @@ def main() -> int:
                 str(suite),
                 "-v",
             ],
+            python_path=python_path,
         )
+
+    run(
+        "Python source compilation",
+        [sys.executable, "-m", "compileall", "-q", str(ROOT)],
+    )
 
     run("Python dependency integrity", [sys.executable, "-m", "pip", "check"])
     run(

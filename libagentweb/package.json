@@ -1,6 +1,6 @@
 {
   "name": "@agent-web/core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Language-neutral Agent Web contracts with a TypeScript implementation",
   "type": "module",
   "exports": {

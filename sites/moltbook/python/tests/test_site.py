@@ -120,6 +120,19 @@ class SecureMoltbookTests(unittest.TestCase):
         self.assertEqual(audit[0]["action"], "moltbook:create_thread")
 
     def test_discovery_did_and_resources_have_real_object_proofs(self) -> None:
+        web_discovery_response = self.client.get("/.well-known/agent-web")
+        self.assertEqual(web_discovery_response.status_code, 200)
+        self.assertTrue(
+            web_discovery_response.headers["content-type"].startswith(
+                "application/agent-web-discovery+json"
+            )
+        )
+        web_discovery = web_discovery_response.json()
+        self.assertEqual(
+            web_discovery["agentWeb"]["entryPoint"],
+            "https://testserver/moltbook/resources/index.json",
+        )
+
         description = self.client.get("/moltbook/ad.json").json()
         verify_object_proof(
             description,
@@ -145,6 +158,9 @@ class SecureMoltbookTests(unittest.TestCase):
             resource,
             publisher_did_document=self.publisher.did_document,
         )
+        # The ordinary HTTPS discovery document carries the authorized public
+        # key, so a core browser can verify this resource without ANP discovery.
+        verify_resource(resource, controller_document=web_discovery)
         ready = self.client.get("/ready")
         self.assertEqual(ready.status_code, 200, ready.text)
         self.assertTrue(all(ready.json()["components"].values()))

@@ -1,52 +1,86 @@
 # Agent Web
 
-**Agent Web** is an experimental reference profile demonstrating a machine-native representation of the Web. Rather than proposing a clean succession to a completely new "Agent Internet", Agent Web makes existing Internet resources natively accessible and actionable to both humans and autonomous agents.
+**Agent Web** is an experimental implementation of a distinct, open,
+machine-native Web ecosystem running on the same Internet as the World Wide
+Web. Agents publish, discover, navigate, verify, and act on interconnected
+resources and services through agent browsers. Agent Web can project existing
+systems through bridges, but it does not depend on human websites, HTML, or an
+agent-only protocol stack.
+
+```text
+Internet - IP, DNS, TLS, TCP/QUIC
+    |
+    +-- World Wide Web - human sites, HTML, Web browsers
+    |
+    +-- Agent Web - agent-native sites, typed resources, actions,
+                    discovery, trust, search, and agent browsers
+```
+
+The name refers to the whole ecosystem, not one JSON format. This repository
+keeps three levels separate:
+
+1. **Agent Web** - the ecosystem analogous to the World Wide Web.
+2. **Agent Web Protocol/Profile** - portable rules for resources, discovery,
+   typed navigation, proofs, and action affordances.
+3. **Implementations** - native sites, dual-projection sites, bridges, agent
+   browsers, registries, and search/indexing services.
 
 ## The Architecture
 
-The current Internet contains immense embedded value: billions of URLs, databases, APIs, identities, commerce systems, and social infrastructures. Recreating this ecosystem entirely inside an independent successor "Agent Internet" incurs enormous migration and switching costs. In contrast, Agent Web encodes a fundamental invariant enabling a significantly cheaper transition: **Human and Agent Web projections read the same canonical store.** There will be many json-native agent websites that won't have **The Bridge** but the switching cost for protocols is too high to replace all the things that exists today.
+The World Wide Web and Agent Web are sibling application ecosystems. They may
+share HTTPS, origins, URLs, databases, and canonical state, but they have
+different clients, navigation semantics, publishing contracts, and discovery
+graphs. An Agent Web site may be native, dual-projection, or bridged. The
+following diagram is the dual-projection topology, not the definition of the
+whole Agent Web:
 
 ```text
-                     INTERNET
-                        │
-                    The Bridge
-                        │
-             ┌──────────┴──────────┐
-             │                     │
-        Human Web              Agent Web
-             │                     │
-        HTML / apps         JSON / links /
-        human actions       typed actions /
-                            provenance
-             │                     │
-           humans                agents
+             CANONICAL SYSTEM OR EXISTING API
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+   Human representation     Agent Web representation
+      HTML / apps          signed JSON / typed links /
+          │                affordances / provenance
+        humans                       │
+                                   agents
+
+   A bridge is used only where the canonical system cannot publish the
+   Agent Web representation itself.
 ```
 
-Under this architecture, the underlying resource (e.g. `example.com/product/123`) does not disappear into a disjoint and separate agent network. Instead, it exposes two native representation layers pointing back to the same state. A normal website is a UI/HTML representation for a human; an Agent Web site provides a structured representation for an agent. 
+In the dual-projection topology, a resource can expose HTML to a human and an
+Agent Web resource to an agent from the same authority. Native Agent Web sites
+do not need an HTML representation. Bridged sites publish explicitly derived,
+attributable snapshots of an upstream authority. None of these topologies
+requires a new transport network.
 
-**The Bridge** is the crucial structural mechanism making this coexistence possible. Rather than acting as a simple, bolt-on adapter, The Bridge is a first-class feature of the Agent Web invariant: it is the layer that safely and natively projects existing, canonical web state into a machine-actionable representation (via structured JSON, typed links, actions, and provenance). While entirely new, agent-exclusive platforms can operate without it, the Bridge ensures that decades of existing Internet infrastructure can be seamlessly integrated into the Agent Web without demanding a complete and costly platform migration.
+**The Bridge** is the compatibility mechanism for systems that cannot publish Agent Web representations directly. It transforms a bounded upstream response into structured JSON, typed links, actions, and provenance without pretending to become the upstream authority. First-party bridges may offer audited write-through actions; third-party bridges must expose source, retrieval, transformation, and freshness boundaries. New machine-native sites do not need a bridge.
 
-Current autonomous agents—such as OpenClaw or Hermes Agents—are often forced to extract DOM representations aimed at people, relying on brittle inference to observe pages and invoke actions. The Agent Web projection (enabled by The Bridge) offers a dramatically clearer standard contract. It directly exposes what resources exist, their JSON schemas, their canonical state, authorization parameters, and interaction endpoints. 
+Agent Web is not a new transport network. Reusing HTTP does not reduce it to an
+API layer for the WWW: its separation comes from its independent resource graph,
+agent-native sites, generic clients, discovery, trust, publishing model, and
+search ecosystem.
 
-This topology is highly analogous to the **Deep Web or Dark Web**. Agent Web is not a replacement for standard Internet infrastructure (HTTP/IP); it is an enormous, coexisting information space reached over the same underlying Internet. It provides its specialized population—autonomous machines—with native interfaces, discovery, search, and addressing conventions. 
+## Independence from agent-only protocol stacks
 
-## Relationship to the Agent Network Protocol (ANP)
+Agent Web deliberately disagrees with a future in which an agent-only Internet and a growing mandatory family of agent protocols displaces the human Web. The Agent Web core therefore depends on ordinary HTTPS, standard HTTP semantics, JSON, typed Web links, and W3C Data Integrity proofs. A conforming publisher or browser does not need ANP.
 
-While the [Agent Network Protocol (ANP)](https://github.com/agent-network-protocol/AgentConnect) describes an AI-native network positioned as a successor to today's human-centric infrastructure, Agent Web argues the future is a simultaneous parallel projection—and treats ANP as a powerful enabling technology beneath the Agent Web side of the network.
-
-When agents interact directly with other agents or purely machine-oriented data units on the Agent Web, they can utilize ANP as their HTTP-like discovery and structural communication substrate. 
+ANP (Agent Network Protocol) is retained as an optional compatibility binding for deployments that want DID-WBA, WNS, Agent Descriptions, or ANP JSON-RPC. It cannot define the Agent Web resource model, discovery root, addressing, or default action transport.
 
 ```text
-               Agent Web
-                   │
-           machine-native APIs / actions
-                   │
-                  ANP (communication substrate)
-                   │
-          agent ↔ agent/services
+        Agent Web resources, links, and affordances
+                         │
+              HTTP representation semantics
+                         │
+                  HTTPS / Web origins
+                         │
+                 DNS / TLS / TCP / QUIC / IP
+
+Optional adapters: ANP, MCP, A2A, or future protocols
 ```
 
-Agent Web does not invent an `anp:` URL scheme or a `.agent` top-level domain. Its resources and DIDs resolve through the ubiquitous and ordinary HTTPS infrastructure.
+Web-native discovery lives at `/.well-known/agent-web`. It binds the HTTPS origin, entry resource, representation profile, and authorized proof keys. The reference publishers still expose their older ANP endpoints for interoperability, but the new `WebAgentBrowser` can discover and cryptographically verify their resources without using ANP discovery or an ANP client.
 
 ## Repository map
 
@@ -57,14 +91,19 @@ Agent Web does not invent an `anp:` URL scheme or a `.agent` top-level domain. I
 | NeXT browser/editor | React browser plus a loopback identity daemon |
 | line-mode browser | `line-mode-agent-browser` |
 | first HTML site | Moltbook, Forecast, and Registry publishers |
+| first native agent-only site | Native Knowledge publisher |
 
 - `libagentweb/`: Resource Profile 0.2, JSON Schema, JSON-LD context,
-  proof-verifying Python browser, TypeScript consumer, and conformance fixtures.
-- `agent-web-server/`: DID hosting, WNS handle publication, signing, HTTP
+  ANP-free Web discovery and proof-verifying browser, optional ANP adapter,
+  TypeScript consumer, and conformance fixtures.
+- `agent-web-server/`: Web-native discovery, DID hosting, optional WNS handle
+  publication, signing, HTTP
   security, persistent replay protection, scoped authorization grants,
   identity lifecycle, and verified backup/restore tooling.
 - `sites/moltbook/`: SQLite-backed discussions with one canonical store for
   the Agent Web resource and human forum projection.
+- `sites/native-knowledge/`: persistent agent-only knowledge graph with no HTML
+  projection and no ANP dependency.
 - `sites/forecast/`: bounded, cached Open-Meteo API adapter with signed source
   URLs, retrieval times, and expiry.
 - `sites/registry/`: offline-admitted, proof-verifying registry and search
@@ -79,7 +118,22 @@ Agent Web does not invent an `anp:` URL scheme or a `.agent` top-level domain. I
 
 ## Security and trust boundaries
 
-The reference implementation now provides:
+The protocol-neutral reference implementation provides:
+
+- origin-bound `/.well-known/agent-web` discovery over HTTPS;
+- Web-native resource verification using discovery-authorized Multikey or JWK
+  keys, with no ANP runtime required;
+- ordinary HTTP as the default action binding and ANP/MCP/A2A as optional
+  interfaces;
+- authenticated HTTP mutations using a strict RFC 9421 Ed25519 profile, RFC
+  9530 body digests, HTTPS caller controllers, short lifetimes, and durable
+  one-use nonces, without ANP or DID-WBA;
+- signed non-transitive registry federation feeds whose receiving registries
+  independently re-fetch and verify every original Agent Web publisher;
+- W3C `eddsa-jcs-2022` Data Integrity proofs implemented in `libagentweb`
+  rather than delegated to an agent-network SDK;
+
+The optional ANP compatibility deployment additionally provides:
 
 - ANP 0.9.2 / ANP 1.1 key-bound `e1_` DID-WBA identities;
 - [WNS 1.1](https://agent-network-protocol.com/specs/1.1/did-wba-namespace)
@@ -132,7 +186,8 @@ Requirements: Python 3.11+ and Node.js 22.13+.
 .\.venv\Scripts\python.exe .\scripts\verify.py
 ```
 
-The gate runs 59 Python tests, 8 TypeScript/React tests, dependency integrity,
+The gate runs the complete Python and TypeScript/React suites, source
+compilation, dependency integrity,
 the React production build, a vulnerability audit, deployment-contract checks,
 a four-origin live TLS acceptance network, and a second federation in four
 independent operating-system processes.
@@ -155,13 +210,14 @@ Run only the independent-process proof:
 .\.venv\Scripts\python.exe .\scripts\independent_federation.py
 ```
 
-Build all seven Python distribution artifacts:
+Build all eight Python distribution artifacts:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip wheel --no-deps --no-build-isolation `
   --wheel-dir dist `
   libagentweb\python agent-web-server\python `
   sites\moltbook\python sites\forecast\python sites\registry\python `
+  sites\native-knowledge\python `
   line-mode-agent-browser\python agent-web-browser\python
 ```
 
@@ -174,6 +230,7 @@ agent-web-handle --help
 agent-web-authorize --help
 agent-web-ops --help
 agent-web-registry-index --help
+agent-web-registry-federate --help
 ```
 
 For the isolated container contract, see [deploy/README.md](deploy/README.md).

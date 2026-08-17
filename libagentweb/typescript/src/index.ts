@@ -12,7 +12,7 @@ export const AGENT_WEB_VERSION = "0.2" as const;
 export const RESOURCE_MEDIA_TYPE = "application/agent-web+json" as const;
 
 export type AgentWebKind = "resource" | "collection" | "service";
-export type AgentWebProtocol = "ANP" | "A2A" | "MCP" | "HTTP";
+export type AgentWebProtocol = "HTTP" | "ANP" | "A2A" | "MCP";
 
 export interface AgentWebLink {
   rel: string;
@@ -26,6 +26,7 @@ export interface AgentWebInterface {
   href: string;
   method?: string;
   contentType?: string;
+  security?: "none" | "http-message-signature";
 }
 
 export interface AgentWebAction {

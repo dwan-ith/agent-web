@@ -27,6 +27,7 @@ DEFAULT_PUBLIC_GET_PATHS = (
     "/live",
     "/ready",
     "/metrics",
+    "/.well-known/agent-web",
     "/.well-known/agent-descriptions",
     "/.well-known/handle/*",
     "/agent-web/0.2",

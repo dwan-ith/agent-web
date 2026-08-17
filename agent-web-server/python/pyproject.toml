@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-web-server"
 version = "0.2.0"
-description = "Publishing toolkit for Agent Web sites over official ANP"
+description = "Secure publishing toolkit for Agent Web sites with optional ANP compatibility"
 requires-python = ">=3.11"
 dependencies = [
   "anp[api]>=0.9.2,<0.10",

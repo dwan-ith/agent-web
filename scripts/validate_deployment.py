@@ -16,9 +16,9 @@ def main() -> int:
     services = document.get("services")
     if not isinstance(services, dict):
         raise ValueError("compose services must be an object")
-    required = {"moltbook", "forecast", "registry"}
+    required = {"moltbook", "forecast", "registry", "native-knowledge"}
     if set(services) != required:
-        raise ValueError("deployment must contain exactly the three publishers")
+        raise ValueError("deployment must contain exactly the four publishers")
     data_mounts: set[str] = set()
     for name, service in services.items():
         if service.get("read_only") is not True:
@@ -28,15 +28,15 @@ def main() -> int:
         if "no-new-privileges:true" not in service.get("security_opt", []):
             raise ValueError(f"{name} permits privilege escalation")
         command = service.get("command", [])
-        for flag in (
-            "--identity-directory",
-            "--tls-certificate",
-            "--tls-private-key",
-            "--metrics-token-file",
-            "--operator-token-file",
-        ):
+        common_flags = ("--tls-certificate", "--tls-private-key")
+        managed_flags = (
+            "--identity-directory", "--metrics-token-file", "--operator-token-file"
+        )
+        for flag in common_flags + (() if name == "native-knowledge" else managed_flags):
             if flag not in command:
                 raise ValueError(f"{name} command is missing {flag}")
+        if name == "native-knowledge" and "--replay-database" not in command:
+            raise ValueError("native-knowledge must persist HTTP replay state")
         volumes = service.get("volumes", [])
         identity_mounts = [
             value for value in volumes
@@ -54,11 +54,8 @@ def main() -> int:
             value for value in volumes
             if value.endswith(":/var/lib/agent-web")
         ]
-        if (
-            len(identity_mounts) != 1
-            or len(tls_mounts) != 1
-            or len(operations_mounts) != 1
-        ):
+        expected_operations = 0 if name == "native-knowledge" else 1
+        if len(identity_mounts) != 1 or len(tls_mounts) != 1 or len(operations_mounts) != expected_operations:
             raise ValueError(f"{name} secrets are not uniquely mounted read-only")
         if len(writable_data) != 1:
             raise ValueError(f"{name} does not have one durable data mount")

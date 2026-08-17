@@ -18,7 +18,13 @@ from agent_web_server import (
 from forecast_site import StaticForecastProvider, start_forecast
 import httpx
 from libagentweb import ActionConfirmationRequired, AgentBrowser
+from libagentweb import (
+    LocalEd25519Signer,
+    WebAgentBrowser,
+    build_caller_controller,
+)
 from moltbook_site import start_moltbook
+from native_knowledge_site import create_app as create_native_knowledge_app
 from registry_site import RegistryIndexer, start_registry
 
 
@@ -49,15 +55,22 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
         )
 
         ports: list[int] = []
-        while len(ports) < 4:
+        while len(ports) < 5:
             port = find_free_port()
             if port not in ports:
                 ports.append(port)
-        moltbook_port, forecast_port, registry_port, browser_port = ports
+        (
+            moltbook_port,
+            forecast_port,
+            registry_port,
+            browser_port,
+            native_port,
+        ) = ports
         cls.moltbook_base = f"https://localhost:{moltbook_port}"
         cls.forecast_base = f"https://localhost:{forecast_port}"
         cls.browser_base = f"https://localhost:{browser_port}"
         cls.registry_base = f"https://localhost:{registry_port}"
+        cls.native_base = f"https://localhost:{native_port}"
         cls.moltbook_identity = generate_publisher_identity(
             base_url=cls.moltbook_base,
             agent_name="moltbook",
@@ -81,6 +94,17 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
         cls.browser_did_path, cls.browser_key_path = write_identity(
             cls.browser_identity,
             directory=root / "browser-identity",
+        )
+        cls.web_caller_controller = (
+            f"{cls.browser_base}/.well-known/agent-web-caller"
+        )
+        cls.web_caller_signer = LocalEd25519Signer(
+            cls.browser_identity.private_key,
+            key_id=f"{cls.web_caller_controller}#key-1",
+        )
+        cls.web_caller_document = build_caller_controller(
+            caller=cls.web_caller_controller,
+            signer=cls.web_caller_signer,
         )
         cls.registry_did_path, cls.registry_key_path = write_identity(
             cls.registry_identity,
@@ -143,6 +167,20 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
             tls_certificate=str(cls.tls.certificate),
             tls_private_key=str(cls.tls.private_key),
         )
+        cls.native = start_site(
+            lambda base_url: create_native_knowledge_app(
+                database=root / "native-knowledge.db",
+                base_url=base_url,
+                replay_database=root / "native-http-replays.db",
+                caller_controllers={
+                    cls.web_caller_controller: cls.web_caller_document,
+                },
+                annotation_writers={cls.web_caller_controller},
+            ),
+            port=native_port,
+            tls_certificate=str(cls.tls.certificate),
+            tls_private_key=str(cls.tls.private_key),
+        )
         cls.registry = start_registry(
             port=registry_port,
             database=str(root / "registry.db"),
@@ -163,6 +201,9 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
         cls.forecast_index_result = indexer.index(
             f"{cls.forecast_base}/forecast/ad.json"
         )
+        cls.native_index_result = indexer.index(
+            f"{cls.native_base}/.well-known/agent-web"
+        )
         cls.graphical = start_site(
             lambda base_url: create_browser_app(
                 identity=cls.browser_identity,
@@ -170,6 +211,8 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
                 private_key_path=cls.browser_key_path,
                 base_url=base_url,
                 allow_private_networks=True,
+                caller_controller=cls.web_caller_controller,
+                caller_signer=cls.web_caller_signer,
             ),
             port=browser_port,
             tls_certificate=str(cls.tls.certificate),
@@ -180,6 +223,7 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.graphical.stop()
         cls.registry.stop()
+        cls.native.stop()
         cls.forecast.stop()
         cls.moltbook.stop()
         for name, value in cls.previous_environment.items():
@@ -254,6 +298,8 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
     def test_registry_indexes_only_verified_sources_and_preserves_provenance(self) -> None:
         self.assertEqual(self.moltbook_index_result["resourcesIndexed"], 1)
         self.assertEqual(self.forecast_index_result["resourcesIndexed"], 4)
+        self.assertEqual(self.native_index_result["resourcesIndexed"], 3)
+        self.assertEqual(self.native_index_result["binding"], "Agent Web")
         browser = AgentBrowser(
             f"{self.registry_base}/registry/ad.json",
             did_document_path=self.browser_did_path,
@@ -274,6 +320,55 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
         self.assertTrue(source["resource"].startswith(self.forecast_base))
         self.assertEqual(source["digest"]["canonicalization"], "RFC8785-JCS")
         self.assertIn("verificationMethod", source["proof"])
+
+    def test_native_site_is_browsed_indexed_and_invoked_over_live_tls(self) -> None:
+        async def scenario() -> None:
+            browser = WebAgentBrowser(
+                f"{self.native_base}/.well-known/agent-web",
+                allow_private_networks=True,
+                caller_controller=self.web_caller_controller,
+                caller_signer=self.web_caller_signer,
+            )
+            discovery = await browser.discover()
+            self.assertNotIn("humanView", discovery["agentWeb"])
+            entry = await browser.open_entrypoint()
+            self.assertFalse(entry["data"]["anpRequired"])
+            topic_url = next(
+                link["href"] for link in entry["links"] if link["rel"] == "item"
+            )
+            topic = await browser.open(topic_url)
+            self.assertIn("KnowledgeTopic", topic["@type"])
+            result = await browser.invoke(
+                "search",
+                {"q": "typed", "limit": 20},
+                resource_url=entry["@id"],
+            )
+            self.assertEqual(result["data"]["count"], 1)
+            annotation = await browser.invoke(
+                "createAnnotation",
+                {
+                    "topic": "agent-web",
+                    "text": "Created through the live Agent Web HTTP binding.",
+                },
+                resource_url=entry["@id"],
+            )
+            self.assertIn("KnowledgeAnnotation", annotation["@type"])
+            self.assertEqual(
+                annotation["data"]["author"], self.web_caller_controller
+            )
+            persisted = await browser.open(annotation["@id"])
+            self.assertEqual(persisted["@id"], annotation["@id"])
+
+        __import__("asyncio").run(scenario())
+
+        matches = self.registry.app.state.registry_store.search(
+            "Native Knowledge", limit=10
+        )
+        self.assertTrue(matches)
+        self.assertEqual(
+            matches[0]["source"]["publisher"],
+            f"{self.native_base}/.well-known/agent-web",
+        )
 
     def test_graphical_daemon_performs_live_discovery_open_and_action(self) -> None:
         with httpx.Client(
@@ -300,6 +395,13 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
                 body["status"]["callerDid"],
                 self.browser_identity.did,
             )
+            controller = client.get(
+                f"{self.browser_base}/.well-known/agent-web-caller"
+            )
+            self.assertEqual(controller.status_code, 200, controller.text)
+            self.assertEqual(
+                controller.json()["id"], self.web_caller_controller
+            )
             action = client.post(
                 f"{self.browser_base}/api/actions",
                 json={
@@ -315,6 +417,31 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
             self.assertEqual(
                 action.json()["resource"]["data"]["author"],
                 self.browser_identity.did,
+            )
+            native = client.post(
+                f"{self.browser_base}/api/connect",
+                json={
+                    "agentDescriptionUrl": (
+                        f"{self.native_base}/.well-known/agent-web"
+                    )
+                },
+            )
+            self.assertEqual(native.status_code, 200, native.text)
+            native_action = client.post(
+                f"{self.browser_base}/api/actions",
+                json={
+                    "method": "createAnnotation",
+                    "params": {
+                        "topic": "typed-links",
+                        "text": "Created by the graphical Agent Web Browser.",
+                    },
+                    "confirmed": False,
+                },
+            )
+            self.assertEqual(native_action.status_code, 200, native_action.text)
+            self.assertEqual(
+                native_action.json()["resource"]["data"]["author"],
+                self.web_caller_controller,
             )
 
 

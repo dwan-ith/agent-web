@@ -197,6 +197,6 @@ Include the bound wheels and evidence in the deterministic review archive:
 python scripts\export_review_bundle.py `
   --release-evidence artifacts\release-evidence-20260812-final `
   --wheel-dir artifacts\wheels-20260806-operations `
-  --requirements-evidence artifacts\requirements-lock-evidence-20260812.json `
+  --requirements-evidence artifacts\requirements-lock-evidence-20260813.json `
   --output artifacts\agent-web-external-review-20260812.zip
 ```

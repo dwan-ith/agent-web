@@ -17,6 +17,7 @@ COPY agent-web-server/python /opt/agent-web/agent-web-server/python
 COPY sites/moltbook/python /opt/agent-web/sites/moltbook/python
 COPY sites/forecast/python /opt/agent-web/sites/forecast/python
 COPY sites/registry/python /opt/agent-web/sites/registry/python
+COPY sites/native-knowledge/python /opt/agent-web/sites/native-knowledge/python
 COPY agent-web-browser/python /opt/agent-web/agent-web-browser/python
 
 RUN python -m pip install --no-cache-dir --no-deps \
@@ -25,6 +26,7 @@ RUN python -m pip install --no-cache-dir --no-deps \
       ./sites/moltbook/python \
       ./sites/forecast/python \
       ./sites/registry/python \
+      ./sites/native-knowledge/python \
       ./agent-web-browser/python \
     && addgroup --system --gid 10001 agentweb \
     && adduser --system --uid 10001 --ingroup agentweb \

@@ -1,0 +1,38 @@
+{
+  "schema": "agent-web-wheel-set/1",
+  "createdAt": "2026-08-13",
+  "files": {
+    "agent_web_graphical_browser-0.2.0-py3-none-any.whl": {
+      "bytes": 333266,
+      "sha256": "b0c5816e44f392931cb09bb4f8470044c30678edf5aaf6e45b401c42b8318537"
+    },
+    "agent_web_line_browser-0.2.0-py3-none-any.whl": {
+      "bytes": 7968,
+      "sha256": "ad0b5f2346467b11dc5d907c8f9b5d632fdf98916c9b35369271b6b074a23e79"
+    },
+    "agent_web_server-0.2.0-py3-none-any.whl": {
+      "bytes": 120864,
+      "sha256": "ef5c8ec11c43b6f4ea8db486e590fec1035be0fdf85e61522c80de5359e9029a"
+    },
+    "forecast_agent_web_site-0.2.0-py3-none-any.whl": {
+      "bytes": 30447,
+      "sha256": "5932dd95f3fb8777be8432110c9721f80d2ecb821517dec8c0d292d0ce15f036"
+    },
+    "libagentweb-0.2.1-py3-none-any.whl": {
+      "bytes": 106021,
+      "sha256": "10feb3fb85be9b5a6a9b94ca8ffdff4bf0b3eb0db981539a636b7f56526d2937"
+    },
+    "moltbook_agent_web_site-0.2.0-py3-none-any.whl": {
+      "bytes": 31005,
+      "sha256": "526202e06d80ef42b45a7469f98b98d60543ed9e647b437f5361abdb543ce905"
+    },
+    "native_knowledge_agent_web_site-0.1.0-py3-none-any.whl": {
+      "bytes": 28162,
+      "sha256": "9eb895bdc50482f3064cb9dfad60a9ee929622d40d8a92821a97d772007c87da"
+    },
+    "registry_agent_web_site-0.2.0-py3-none-any.whl": {
+      "bytes": 44217,
+      "sha256": "0fdb486e69c638a29d174db91937856ab0375ab7ce1037cd8b55ad38143fca68"
+    }
+  }
+}

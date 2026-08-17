@@ -31,6 +31,7 @@
     "safe": "aw:safe",
     "idempotent": "aw:idempotent",
     "authorizationLevel": "aw:authorizationLevel",
+    "security": "aw:security",
     "provenance": "aw:provenance",
     "publisher": {
       "@id": "aw:publisher",

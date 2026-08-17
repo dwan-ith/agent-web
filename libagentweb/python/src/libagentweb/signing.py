@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from base64 import b64decode, b64encode
+from base64 import b64decode, b64encode, urlsafe_b64decode
 from copy import deepcopy
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -223,10 +223,15 @@ def sign_object_proof(
     verification_method: str,
     created: str | None = None,
 ) -> dict[str, Any]:
-    """Generate an ANP Appendix-B eddsa-jcs-2022 proof via any signer."""
+    """Generate a W3C ``eddsa-jcs-2022`` Data Integrity proof.
+
+    ``issuer_did`` is retained as a compatibility parameter name.  The value
+    may be any absolute controller identifier, including an HTTPS publisher
+    URL; Agent Web core does not require an ANP or DID-WBA identity.
+    """
 
     if not verification_method.startswith(f"{issuer_did}#"):
-        raise ValueError("verification method does not belong to issuer DID")
+        raise ValueError("verification method does not belong to issuer")
     unsigned = deepcopy(dict(document))
     unsigned.pop("proof", None)
     created_value = created or datetime.now(timezone.utc).strftime(
@@ -263,3 +268,93 @@ def sign_object_proof(
         "proofValue": "z" + base58.b58encode(signature).decode("ascii"),
     }
     return result
+
+
+def verify_object_proof(
+    document: Mapping[str, Any],
+    *,
+    issuer: str,
+    controller_document: Mapping[str, Any],
+) -> None:
+    """Verify an ``eddsa-jcs-2022`` proof without an ANP dependency."""
+
+    value = deepcopy(dict(document))
+    proof = value.pop("proof", None)
+    if not isinstance(proof, Mapping):
+        raise ValueError("document has no Data Integrity proof")
+    if proof.get("type") != "DataIntegrityProof":
+        raise ValueError("unsupported proof type")
+    if proof.get("cryptosuite") != "eddsa-jcs-2022":
+        raise ValueError("unsupported proof cryptosuite")
+    if proof.get("proofPurpose") != "assertionMethod":
+        raise ValueError("proof is not an assertionMethod proof")
+    method_id = proof.get("verificationMethod")
+    if not isinstance(method_id, str) or not method_id.startswith(f"{issuer}#"):
+        raise ValueError("proof verification method does not belong to issuer")
+    assertion_methods = controller_document.get("assertionMethod", [])
+    authorized = {
+        item if isinstance(item, str) else item.get("id")
+        for item in assertion_methods
+        if isinstance(item, (str, Mapping))
+    }
+    if method_id not in authorized:
+        raise ValueError("proof verification method is not authorized for assertions")
+    methods = controller_document.get("verificationMethod", [])
+    method = next(
+        (
+            item
+            for item in methods
+            if isinstance(item, Mapping) and item.get("id") == method_id
+        ),
+        None,
+    )
+    if method is None:
+        raise ValueError("proof verification method is not published")
+    public_key = _verification_public_key(method)
+    proof_value = proof.get("proofValue")
+    if not isinstance(proof_value, str) or not proof_value.startswith("z"):
+        raise ValueError("proofValue must use base58-btc multibase")
+    try:
+        signature = base58.b58decode(proof_value[1:])
+    except ValueError as exc:
+        raise ValueError("proofValue is not valid base58-btc") from exc
+    if len(signature) != 64:
+        raise ValueError("proofValue is not an Ed25519 signature")
+    options = {key: deepcopy(item) for key, item in proof.items() if key != "proofValue"}
+    signing_input = sha256(jcs.canonicalize(options)).digest() + sha256(
+        jcs.canonicalize(value)
+    ).digest()
+    try:
+        public_key.verify(signature, signing_input)
+    except Exception as exc:
+        raise ValueError("Data Integrity proof signature is invalid") from exc
+
+
+def _verification_public_key(
+    method: Mapping[str, Any],
+) -> ed25519.Ed25519PublicKey:
+    multibase = method.get("publicKeyMultibase")
+    if isinstance(multibase, str) and multibase.startswith("z"):
+        try:
+            encoded = base58.b58decode(multibase[1:])
+        except ValueError as exc:
+            raise ValueError("verification Multikey is not valid base58-btc") from exc
+        # multicodec 0xed01 identifies an Ed25519 public key.
+        if len(encoded) != 34 or encoded[:2] != b"\xed\x01":
+            raise ValueError("verification Multikey is not Ed25519")
+        return ed25519.Ed25519PublicKey.from_public_bytes(encoded[2:])
+    jwk = method.get("publicKeyJwk")
+    if isinstance(jwk, Mapping):
+        if jwk.get("kty") != "OKP" or jwk.get("crv") != "Ed25519":
+            raise ValueError("verification JWK is not Ed25519")
+        encoded = jwk.get("x")
+        if not isinstance(encoded, str):
+            raise ValueError("verification JWK has no public coordinate")
+        try:
+            raw = urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+        except ValueError as exc:
+            raise ValueError("verification JWK is not base64url") from exc
+        if len(raw) != 32:
+            raise ValueError("verification JWK is not a 32-byte Ed25519 key")
+        return ed25519.Ed25519PublicKey.from_public_bytes(raw)
+    raise ValueError("verification method has no supported Ed25519 public key")
