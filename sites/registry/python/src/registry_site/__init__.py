@@ -10,7 +10,7 @@ from importlib import import_module
 from typing import Any
 
 from .indexer import RegistryIndexer
-from .federation import FederationSyncResult, RegistryFederator
+from .federation import FederationStateFile, FederationSyncResult, RegistryFederator
 from .store import RegistryStore
 
 
@@ -31,6 +31,7 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "RegistryIndexer",
+    "FederationStateFile",
     "FederationSyncResult",
     "RegistryFederator",
     "RegistryStore",

@@ -31,8 +31,23 @@ from .operations import (
 )
 from .maintenance import MaintenanceGate, MaintenanceStatus, install_maintenance
 from .observability import ServiceObservability, install_observability
+from .ratelimit import (
+    RateLimitRule,
+    SlidingWindowCounter,
+    caller_did_key,
+    client_ip_key,
+    install_rate_limit,
+)
 from .runtime import RunningSite, find_free_port, start_site
-from .security import NonceStore, SecurityConfig, install_security
+from .security import (
+    BRIDGE_PUBLIC_GET_PATHS,
+    DEFAULT_PUBLIC_GET_PATHS,
+    DEMO_PUBLIC_GET_PATHS,
+    NonceStore,
+    REGISTRY_PUBLIC_GET_PATHS,
+    SecurityConfig,
+    install_security,
+)
 from .secrets import read_secret_file
 from .tls import TLSMaterial, generate_local_tls
 from .wns import (
@@ -46,7 +61,10 @@ from .wns import (
 __all__ = [
     "AuthorizationDecision",
     "AuthorizationStore",
+    "BRIDGE_PUBLIC_GET_PATHS",
     "BACKUP_MANIFEST_SCHEMA",
+    "DEFAULT_PUBLIC_GET_PATHS",
+    "DEMO_PUBLIC_GET_PATHS",
     "IDENTITY_MANIFEST_VERSION",
     "HandleStore",
     "MaintenanceGate",
@@ -54,10 +72,13 @@ __all__ = [
     "ManagedPublisherIdentity",
     "NonceStore",
     "PublisherIdentity",
+    "REGISTRY_PUBLIC_GET_PATHS",
+    "RateLimitRule",
     "RpcAuthorizationRule",
     "RunningSite",
     "SecurityConfig",
     "ServiceObservability",
+    "SlidingWindowCounter",
     "TLSMaterial",
     "WNS_SCHEMA_VERSION",
     "active_identity_paths",
@@ -70,6 +91,7 @@ __all__ = [
     "install_security",
     "install_maintenance",
     "install_observability",
+    "install_rate_limit",
     "install_rpc_authorization",
     "inspect_sqlite",
     "load_identity_manifest",

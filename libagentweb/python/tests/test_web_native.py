@@ -185,6 +185,302 @@ class WebNativeBrowserTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "action input"):
             await browser.invoke("search", {})
 
+    async def test_malformed_advertised_input_schema_is_a_value_error(self) -> None:
+        broken = {
+            **{key: value for key, value in self.resource.items() if key != "proof"},
+            "affordances": {
+                **empty_affordances(),
+                "actions": {
+                    "search": http_action(
+                        description="Search with a corrupt schema",
+                        url=f"{self.origin}/resources/search",
+                        method="GET",
+                        input_schema={"type": "object", "required": "q"},
+                        output_schema={"type": "object"},
+                        safe=True,
+                        idempotent=True,
+                        authorization_level="normal",
+                    )
+                },
+            },
+        }
+        broken = sign_resource(
+            {**broken, "provenance": {**self.resource["provenance"]}},
+            private_key=self.key,
+            publisher=self.publisher,
+            verification_method=self.method,
+        )
+
+        async def fetch(url: str) -> dict:
+            if url.endswith("/.well-known/agent-web"):
+                return self.discovery
+            return broken
+
+        browser = WebAgentBrowser(
+            f"{self.origin}/.well-known/agent-web",
+            fetch_document=fetch,
+        )
+        await browser.open_entrypoint()
+        with self.assertRaisesRegex(ValueError, "invalid input schema"):
+            await browser.invoke("search", {"q": "links"})
+
+    async def test_cross_origin_action_verifies_against_serving_origin(self) -> None:
+        # A second origin serves the action and signs the result with its own
+        # discovery-authorized key.
+        other_origin = "https://actions.example"
+        other_publisher = f"{other_origin}/.well-known/agent-web"
+        other_key = ed25519.Ed25519PrivateKey.generate()
+        other_public = other_key.public_key().public_bytes(
+            serialization.Encoding.Raw,
+            serialization.PublicFormat.Raw,
+        )
+        other_method = f"{other_publisher}#key-1"
+        other_discovery = build_discovery_document(
+            base_url=other_origin,
+            entry_point=f"{other_origin}/resources/index",
+            publisher=other_publisher,
+            verification_methods=[
+                {
+                    "id": other_method,
+                    "type": "Multikey",
+                    "controller": other_publisher,
+                    "publicKeyMultibase": "z"
+                    + base58.b58encode(b"\xed\x01" + other_public).decode("ascii"),
+                }
+            ],
+            assertion_methods=[other_method],
+        )
+        action_url = f"{other_origin}/actions/create"
+        result_id = f"{other_origin}/resources/created"
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        result = sign_resource(
+            {
+                "@context": "urn:agent-web:context:0.2",
+                "@id": result_id,
+                "@type": "AgentWebResource",
+                "agentWeb": {"version": "0.2", "kind": "resource"},
+                "name": "Created elsewhere",
+                "links": [],
+                "affordances": empty_affordances(),
+                "provenance": {
+                    "publisher": other_publisher,
+                    "createdAt": timestamp,
+                    "updatedAt": timestamp,
+                    "canonical": result_id,
+                },
+                "data": {"created": True},
+            },
+            private_key=other_key,
+            publisher=other_publisher,
+            verification_method=other_method,
+        )
+        advertised = sign_resource(
+            {
+                **{k: v for k, v in self.resource.items() if k != "proof"},
+                "affordances": {
+                    **empty_affordances(),
+                    "actions": {
+                        "create": http_action(
+                            description="Create on the actions origin",
+                            url=action_url,
+                            method="POST",
+                            input_schema={"type": "object"},
+                            output_schema={"type": "object"},
+                            safe=False,
+                            idempotent=False,
+                            authorization_level="normal",
+                        )
+                    },
+                },
+            },
+            private_key=self.key,
+            publisher=self.publisher,
+            verification_method=self.method,
+        )
+
+        async def fetch(url: str) -> dict:
+            if url.endswith("/.well-known/agent-web"):
+                return (
+                    self.discovery
+                    if url.startswith(self.origin)
+                    else other_discovery
+                )
+            return advertised
+
+        async def action_fetch(method: str, url: str, params: dict) -> dict:
+            return result
+
+        browser = WebAgentBrowser(
+            f"{self.origin}/.well-known/agent-web",
+            allowed_origins={other_origin},
+            fetch_document=fetch,
+            fetch_action=action_fetch,
+        )
+        await browser.open_entrypoint()
+        opened = await browser.invoke("create", {}, resource_url=None)
+        self.assertEqual(opened["provenance"]["publisher"], other_publisher)
+
+    async def test_cross_origin_action_rejects_foreign_publisher(self) -> None:
+        # The serving origin is different, but the response claims the first
+        # site's publisher; that must fail against the serving origin's
+        # own discovery document.
+        other_origin = "https://actions.example"
+        other_discovery = build_discovery_document(
+            base_url=other_origin,
+            entry_point=f"{other_origin}/resources/index",
+            publisher=f"{other_origin}/.well-known/agent-web",
+            verification_methods=[
+                {
+                    "id": f"{other_origin}/.well-known/agent-web#key-1",
+                    "type": "Multikey",
+                    "controller": f"{other_origin}/.well-known/agent-web",
+                    "publicKeyMultibase": self.discovery[
+                        "verificationMethod"
+                    ][0]["publicKeyMultibase"],
+                }
+            ],
+            assertion_methods=[f"{other_origin}/.well-known/agent-web#key-1"],
+        )
+        action_url = f"{other_origin}/actions/create"
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        forged = sign_resource(
+            {
+                "@context": "urn:agent-web:context:0.2",
+                "@id": f"{other_origin}/resources/created",
+                "@type": "AgentWebResource",
+                "agentWeb": {"version": "0.2", "kind": "resource"},
+                "name": "Forged attribution",
+                "links": [],
+                "affordances": empty_affordances(),
+                "provenance": {
+                    "publisher": self.publisher,
+                    "createdAt": timestamp,
+                    "updatedAt": timestamp,
+                    "canonical": f"{other_origin}/resources/created",
+                },
+                "data": {},
+            },
+            private_key=self.key,
+            publisher=self.publisher,
+            verification_method=self.method,
+        )
+        advertised = sign_resource(
+            {
+                **{k: v for k, v in self.resource.items() if k != "proof"},
+                "affordances": {
+                    **empty_affordances(),
+                    "actions": {
+                        "create": http_action(
+                            description="Create on the actions origin",
+                            url=action_url,
+                            method="POST",
+                            input_schema={"type": "object"},
+                            output_schema={"type": "object"},
+                            safe=False,
+                            idempotent=False,
+                            authorization_level="normal",
+                        )
+                    },
+                },
+            },
+            private_key=self.key,
+            publisher=self.publisher,
+            verification_method=self.method,
+        )
+
+        async def fetch(url: str) -> dict:
+            if url.endswith("/.well-known/agent-web"):
+                return (
+                    self.discovery
+                    if url.startswith(self.origin)
+                    else other_discovery
+                )
+            return advertised
+
+        async def action_fetch(method: str, url: str, params: dict) -> dict:
+            return forged
+
+        browser = WebAgentBrowser(
+            f"{self.origin}/.well-known/agent-web",
+            allowed_origins={other_origin},
+            fetch_document=fetch,
+            fetch_action=action_fetch,
+        )
+        await browser.open_entrypoint()
+        with self.assertRaisesRegex(
+            ResourceTrustError, "differs from its serving origin"
+        ):
+            await browser.invoke("create", {})
+
+    async def test_action_result_on_another_origin_is_rejected(self) -> None:
+        # The action runs on this site but claims its result lives on another
+        # origin; the identity/transport binding forbids that.
+        action_url = f"{self.origin}/actions/create"
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        smuggled = sign_resource(
+            {
+                "@context": "urn:agent-web:context:0.2",
+                "@id": "https://attacker.example/resources/stolen",
+                "@type": "AgentWebResource",
+                "agentWeb": {"version": "0.2", "kind": "resource"},
+                "name": "Cross-origin identity",
+                "links": [],
+                "affordances": empty_affordances(),
+                "provenance": {
+                    "publisher": self.publisher,
+                    "createdAt": timestamp,
+                    "updatedAt": timestamp,
+                    "canonical": "https://attacker.example/resources/stolen",
+                },
+                "data": {},
+            },
+            private_key=self.key,
+            publisher=self.publisher,
+            verification_method=self.method,
+        )
+        advertised = sign_resource(
+            {
+                **{k: v for k, v in self.resource.items() if k != "proof"},
+                "affordances": {
+                    **empty_affordances(),
+                    "actions": {
+                        "create": http_action(
+                            description="Create locally",
+                            url=action_url,
+                            method="POST",
+                            input_schema={"type": "object"},
+                            output_schema={"type": "object"},
+                            safe=False,
+                            idempotent=False,
+                            authorization_level="normal",
+                        )
+                    },
+                },
+            },
+            private_key=self.key,
+            publisher=self.publisher,
+            verification_method=self.method,
+        )
+
+        async def fetch(url: str) -> dict:
+            if url.endswith("/.well-known/agent-web"):
+                return self.discovery
+            return advertised
+
+        async def action_fetch(method: str, url: str, params: dict) -> dict:
+            return smuggled
+
+        browser = WebAgentBrowser(
+            f"{self.origin}/.well-known/agent-web",
+            fetch_document=fetch,
+            fetch_action=action_fetch,
+        )
+        await browser.open_entrypoint()
+        with self.assertRaisesRegex(
+            ResourceTrustError, "does not use the action's origin"
+        ):
+            await browser.invoke("create", {})
+
     def test_discovery_rejects_cross_origin_entrypoint(self) -> None:
         with self.assertRaises(DiscoveryValidationError):
             build_discovery_document(

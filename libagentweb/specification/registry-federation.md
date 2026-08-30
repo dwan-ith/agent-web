@@ -31,6 +31,7 @@ The feed declares:
 {
   "data": {
     "sourceCount": 1,
+    "feedGeneration": 12,
     "verificationRequired": "independent-live-source-verification",
     "transitiveTrust": false
   },
@@ -42,6 +43,15 @@ The feed declares:
   }
 }
 ```
+
+`feedGeneration` is optional but RECOMMENDED. It MUST be a non-negative
+integer that advances if and only if the advertised source set or the
+underlying verified content changes; re-verifying an unchanged site refreshes
+its verification time without advancing the generation. Receivers that record
+the last generation they converged to may then skip a full re-sync when the
+peer's signed feed still advertises that same generation, which makes
+scheduled incremental convergence safe: an unchanged generation genuinely
+means unchanged content, not merely unindexed churn.
 
 ## Receiver algorithm
 

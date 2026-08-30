@@ -80,7 +80,7 @@ class RegistryIndexer:
         async def open_resource(url: str) -> dict[str, Any]:
             return await browser.open(url)
 
-        resources = await self._crawl(
+        resources, truncated = await self._crawl(
             origin=origin,
             publisher=publisher,
             entry=entry,
@@ -100,10 +100,12 @@ class RegistryIndexer:
             description=descriptor,
             resources=resources,
         )
+        self.store.prune_expired()
         return {
             "discoveryUrl": discovery_url,
             "publisher": publisher,
             "resourcesIndexed": count,
+            "truncated": truncated,
             "verification": (
                 "HTTPS origin discovery, authorized key, resource proof, "
                 "canonical URL, expiry"
@@ -138,7 +140,7 @@ class RegistryIndexer:
         publisher = description["identifier"]
         origin = _origin(agent_description_url)
         entry = browser.open_entrypoint()
-        resources = asyncio.run(
+        resources, truncated = asyncio.run(
             self._crawl(
                 origin=origin,
                 publisher=publisher,
@@ -152,10 +154,12 @@ class RegistryIndexer:
             description=description,
             resources=resources,
         )
+        self.store.prune_expired()
         return {
             "agentDescription": agent_description_url,
             "publisher": publisher,
             "resourcesIndexed": count,
+            "truncated": truncated,
             "verification": (
                 "DID-WBA binding, Agent Description proof, resource proof, "
                 "canonical URL, expiry"
@@ -171,18 +175,28 @@ class RegistryIndexer:
         entry: dict[str, Any],
         open_resource: Any,
         max_resources: int,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """Crawl the bounded same-origin graph, truncating instead of aborting.
+
+        Size limits are operational bounds, not trust violations: hitting one
+        yields a truncated-but-verified snapshot (reported via the second
+        return value). Trust violations — an escaped origin or a foreign
+        publisher's content — still fail the whole site.
+        """
+
         queue = [entry["@id"]]
         prefetched = {entry["@id"]: entry}
         visited: set[str] = set()
         resources: list[dict[str, Any]] = []
         total_bytes = 0
+        truncated = False
         while queue:
             resource_url = queue.pop(0)
             if resource_url in visited:
                 continue
             if len(visited) >= max_resources:
-                raise RuntimeError("registry crawl exceeded its resource limit")
+                truncated = True
+                break
             resource = prefetched.pop(
                 resource_url,
                 None,
@@ -193,7 +207,8 @@ class RegistryIndexer:
                 raise ValueError("publisher site linked a different publisher as content")
             total_bytes += len(jcs.canonicalize(resource))
             if total_bytes > self.max_total_bytes:
-                raise RuntimeError("registry crawl exceeded its total byte limit")
+                truncated = True
+                break
             visited.add(resource_url)
             resources.append(resource)
             for link in resource["links"]:
@@ -204,7 +219,7 @@ class RegistryIndexer:
                     if _origin(target) != origin:
                         raise ValueError("publisher content link escaped its origin")
                     queue.append(target)
-        return resources
+        return resources, truncated
 
 
 def _origin(url: str) -> str:

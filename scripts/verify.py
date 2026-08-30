@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
@@ -15,46 +16,29 @@ def run(
     label: str,
     command: list[str],
     cwd: Path = ROOT,
-    *,
-    python_path: Path | None = None,
 ) -> None:
     print(f"\n== {label} ==", flush=True)
-    environment = None
-    if python_path is not None:
-        import os
-
-        environment = os.environ.copy()
-        existing = environment.get("PYTHONPATH")
-        environment["PYTHONPATH"] = str(python_path) + (
-            os.pathsep + existing if existing else ""
-        )
-    subprocess.run(command, cwd=cwd, check=True, env=environment)
+    subprocess.run(command, cwd=cwd, check=True)
 
 
 def main() -> int:
-    npm = shutil.which("npm.cmd") or shutil.which("npm")
+    # shutil.which resolves npm/npm.cmd/npm.exe per platform via PATHEXT.
+    npm = shutil.which("npm")
     if npm is None:
         raise RuntimeError("npm is required for TypeScript verification")
 
     python_suites = [
-        ("libagentweb Python", ROOT / "libagentweb/python/tests", None),
-        ("publisher security", ROOT / "agent-web-server/python/tests", None),
-        ("Moltbook site", ROOT / "sites/moltbook/python/tests", None),
-        ("Forecast bridge", ROOT / "sites/forecast/python/tests", None),
-        ("Registry search", ROOT / "sites/registry/python/tests", None),
-        (
-            "native agent-only site",
-            ROOT / "sites/native-knowledge/python/tests",
-            ROOT / "sites/native-knowledge/python/src",
-        ),
-        ("graphical browser daemon", ROOT / "agent-web-browser/python/tests", None),
-        (
-            "secure live network",
-            ROOT / "acceptance/python",
-            ROOT / "sites/native-knowledge/python/src",
-        ),
+        ("libagentweb Python", ROOT / "libagentweb/python/tests"),
+        ("publisher security", ROOT / "agent-web-server/python/tests"),
+        ("Moltbook site", ROOT / "sites/moltbook/python/tests"),
+        ("Forecast bridge", ROOT / "sites/forecast/python/tests"),
+        ("Registry search", ROOT / "sites/registry/python/tests"),
+        ("native agent-only site", ROOT / "sites/native-knowledge/python/tests"),
+        ("line-mode browser CLI", ROOT / "line-mode-agent-browser/python/tests"),
+        ("graphical browser daemon", ROOT / "agent-web-browser/python/tests"),
+        ("secure live network", ROOT / "acceptance/python"),
     ]
-    for label, suite, python_path in python_suites:
+    for label, suite in python_suites:
         run(
             label,
             [
@@ -66,7 +50,6 @@ def main() -> int:
                 str(suite),
                 "-v",
             ],
-            python_path=python_path,
         )
 
     run(
@@ -137,11 +120,18 @@ def main() -> int:
         [npm, "run", "build"],
         ROOT / "agent-web-browser",
     )
-    run(
-        "graphical browser dependency audit",
-        [npm, "audit", "--audit-level=high"],
-        ROOT / "agent-web-browser",
-    )
+    if os.environ.get("AGENT_WEB_SKIP_NPM_AUDIT") != "1":
+        run(
+            "graphical browser dependency audit",
+            [npm, "audit", "--audit-level=high"],
+            ROOT / "agent-web-browser",
+        )
+    else:
+        print(
+            "\n== graphical browser dependency audit ==\n"
+            "skipped: AGENT_WEB_SKIP_NPM_AUDIT=1 (air-gapped mode)",
+            flush=True,
+        )
     run(
         "independent-process federation",
         [sys.executable, str(ROOT / "scripts/independent_federation.py")],

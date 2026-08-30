@@ -1,0 +1,709 @@
+{
+  "profile": "urn:agent-web:data-integrity:0.1",
+  "cryptosuite": "eddsa-jcs-2022",
+  "fixed": {
+    "created": "2026-08-01T00:00:00Z",
+    "origin": "https://publisher.example",
+    "publisher": "https://publisher.example/.well-known/agent-web"
+  },
+  "keys": {
+    "seedHex": "9d61b19deffd2a60588dc0da7f0c4b1dd0e86ab4a0f2e4ac17432c21de4649ec",
+    "secondSeedHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+    "publicKeyMultibase": "z6MkgXcp91w8iYVm2rZH5djTschQGrec6tFgJbQiLKv4GKev"
+  },
+  "controllerDocument": {
+    "id": "https://publisher.example/.well-known/agent-web",
+    "verificationMethod": [
+      {
+        "id": "https://publisher.example/.well-known/agent-web#key-1",
+        "type": "Multikey",
+        "controller": "https://publisher.example/.well-known/agent-web",
+        "publicKeyMultibase": "z6MkgXcp91w8iYVm2rZH5djTschQGrec6tFgJbQiLKv4GKev"
+      }
+    ],
+    "assertionMethod": [
+      "https://publisher.example/.well-known/agent-web#key-1"
+    ]
+  },
+  "resource": {
+    "@context": "urn:agent-web:context:0.2",
+    "@id": "https://publisher.example/resources/vector",
+    "@type": [
+      "AgentWebResource",
+      "ConformanceVector"
+    ],
+    "agentWeb": {
+      "version": "0.2",
+      "kind": "resource"
+    },
+    "name": "Data Integrity conformance vector",
+    "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+    "links": [
+      {
+        "rel": "self",
+        "href": "https://publisher.example/resources/vector",
+        "mediaType": "application/agent-web+json"
+      }
+    ],
+    "affordances": {
+      "properties": {},
+      "actions": {},
+      "events": {}
+    },
+    "provenance": {
+      "publisher": "https://publisher.example/.well-known/agent-web",
+      "createdAt": "2026-08-01T00:00:00Z",
+      "updatedAt": "2026-08-01T00:00:00Z",
+      "canonical": "https://publisher.example/resources/vector"
+    },
+    "data": {
+      "zeta": 1,
+      "Alpha": [
+        1,
+        2.5,
+        -3,
+        true,
+        null
+      ],
+      "naïve": "café",
+      "quote\"key": "escaped",
+      "nested": {
+        "b": 2,
+        "a": {
+          "y": [
+            10,
+            0.125
+          ],
+          "x": "order"
+        }
+      },
+      "count": 300
+    },
+    "proof": {
+      "type": "DataIntegrityProof",
+      "cryptosuite": "eddsa-jcs-2022",
+      "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+      "proofPurpose": "assertionMethod",
+      "created": "2026-08-01T00:00:00Z",
+      "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+    }
+  },
+  "canonicalUnsignedDocument": "{\"@context\":\"urn:agent-web:context:0.2\",\"@id\":\"https://publisher.example/resources/vector\",\"@type\":[\"AgentWebResource\",\"ConformanceVector\"],\"affordances\":{\"actions\":{},\"events\":{},\"properties\":{}},\"agentWeb\":{\"kind\":\"resource\",\"version\":\"0.2\"},\"data\":{\"Alpha\":[1,2.5,-3,true,null],\"count\":300,\"naïve\":\"café\",\"nested\":{\"a\":{\"x\":\"order\",\"y\":[10,0.125]},\"b\":2},\"quote\\\"key\":\"escaped\",\"zeta\":1},\"description\":\"Cross-language eddsa-jcs-2022 verification fixture.\",\"links\":[{\"href\":\"https://publisher.example/resources/vector\",\"mediaType\":\"application/agent-web+json\",\"rel\":\"self\"}],\"name\":\"Data Integrity conformance vector\",\"provenance\":{\"canonical\":\"https://publisher.example/resources/vector\",\"createdAt\":\"2026-08-01T00:00:00Z\",\"publisher\":\"https://publisher.example/.well-known/agent-web\",\"updatedAt\":\"2026-08-01T00:00:00Z\"}}",
+  "negatives": [
+    {
+      "name": "tampered-data",
+      "expectedError": "signature is invalid",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 2,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+        }
+      }
+    },
+    {
+      "name": "signed-by-different-key",
+      "expectedError": "signature is invalid",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "zVdoSWwdyVBLJtUVD1GrZuLCoNEMqhCDCt85PEhJZQVfNfH7iyTo39uU71miKrH5SAm68sJiSBaiePecPMNfp7Fd"
+        }
+      }
+    },
+    {
+      "name": "unauthorized-assertion-method",
+      "expectedError": "not authorized for assertions",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+        }
+      },
+      "controllerDocument": {
+        "id": "https://publisher.example/.well-known/agent-web",
+        "verificationMethod": [
+          {
+            "id": "https://publisher.example/.well-known/agent-web#key-1",
+            "type": "Multikey",
+            "controller": "https://publisher.example/.well-known/agent-web",
+            "publicKeyMultibase": "z6MkgXcp91w8iYVm2rZH5djTschQGrec6tFgJbQiLKv4GKev"
+          }
+        ],
+        "assertionMethod": []
+      }
+    },
+    {
+      "name": "unknown-verification-method",
+      "expectedError": "not published",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+        }
+      },
+      "controllerDocument": {
+        "id": "https://publisher.example/.well-known/agent-web",
+        "verificationMethod": [],
+        "assertionMethod": [
+          "https://publisher.example/.well-known/agent-web#key-1"
+        ]
+      }
+    },
+    {
+      "name": "issuer-mismatch",
+      "expectedError": "does not belong to issuer",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+        }
+      },
+      "issuer": "https://attacker.example/.well-known/agent-web"
+    },
+    {
+      "name": "wrong-cryptosuite",
+      "expectedError": "unsupported proof cryptosuite",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "ecdsa-rdfc-2019",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+        }
+      }
+    },
+    {
+      "name": "corrupt-proof-value",
+      "expectedError": "signature is invalid",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-01T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTF4"
+        }
+      }
+    },
+    {
+      "name": "tampered-proof-created",
+      "expectedError": "signature is invalid",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "verificationMethod": "https://publisher.example/.well-known/agent-web#key-1",
+          "proofPurpose": "assertionMethod",
+          "created": "2026-08-02T00:00:00Z",
+          "proofValue": "z3trLj6zMdrANoi9QGwRhJdNN77t2eLmLEckbe1R4VTbTzHio1dubByJv7aqEYBKW8m3SXHLavqc5yojAfu59CTCr"
+        }
+      }
+    },
+    {
+      "name": "missing-proof",
+      "expectedError": "no Data Integrity proof",
+      "resource": {
+        "@context": "urn:agent-web:context:0.2",
+        "@id": "https://publisher.example/resources/vector",
+        "@type": [
+          "AgentWebResource",
+          "ConformanceVector"
+        ],
+        "agentWeb": {
+          "version": "0.2",
+          "kind": "resource"
+        },
+        "name": "Data Integrity conformance vector",
+        "description": "Cross-language eddsa-jcs-2022 verification fixture.",
+        "links": [
+          {
+            "rel": "self",
+            "href": "https://publisher.example/resources/vector",
+            "mediaType": "application/agent-web+json"
+          }
+        ],
+        "affordances": {
+          "properties": {},
+          "actions": {},
+          "events": {}
+        },
+        "provenance": {
+          "publisher": "https://publisher.example/.well-known/agent-web",
+          "createdAt": "2026-08-01T00:00:00Z",
+          "updatedAt": "2026-08-01T00:00:00Z",
+          "canonical": "https://publisher.example/resources/vector"
+        },
+        "data": {
+          "zeta": 1,
+          "Alpha": [
+            1,
+            2.5,
+            -3,
+            true,
+            null
+          ],
+          "naïve": "café",
+          "quote\"key": "escaped",
+          "nested": {
+            "b": 2,
+            "a": {
+              "y": [
+                10,
+                0.125
+              ],
+              "x": "order"
+            }
+          },
+          "count": 300
+        }
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import inspect
 import json
@@ -97,7 +98,9 @@ def install_observability(
         components: dict[str, bool] = {}
         for name, check in checks.items():
             try:
-                result = check()
+                # Integrity probes are blocking SQLite calls; run them off
+                # the event loop so a slow database cannot stall serving.
+                result = await asyncio.to_thread(check)
                 if inspect.isawaitable(result):
                     result = await result
                 components[name] = result is True

@@ -22,15 +22,21 @@ def utc_now() -> str:
 class MoltbookStore:
     """A tiny SQLite repository shared by ANP and the human Web bridge."""
 
+    AUDIT_RETENTION = 10_000
+
     def __init__(self, database: str | Path = ":memory:", *, seed: bool = True) -> None:
         self._lock = RLock()
         self._connection = sqlite3.connect(
             str(database),
             check_same_thread=False,
             isolation_level=None,
+            timeout=30.0,
         )
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA foreign_keys = ON")
+        self._connection.execute("PRAGMA journal_mode = WAL")
+        self._connection.execute("PRAGMA synchronous = NORMAL")
+        self._connection.execute("PRAGMA busy_timeout = 30000")
         schema_version = int(
             self._connection.execute("PRAGMA user_version").fetchone()[0]
         )
@@ -141,10 +147,10 @@ class MoltbookStore:
         title = _required_text(title, "title", 200)
         body = _required_text(body, "body", 20_000)
         author = _required_text(author, "author", 300)
-        thread_id = uuid4().hex[:12]
+        thread_id = uuid4().hex
         timestamp = utc_now()
         with self._lock:
-            self._enforce_rate_limit(author, rate_limit)
+            self._enforce_rate_limit(author, "create_thread", rate_limit)
             self._connection.execute(
                 """
                 INSERT INTO threads (id, title, body, author, created_at, updated_at)
@@ -159,6 +165,7 @@ class MoltbookStore:
                 """,
                 (author, thread_id, timestamp),
             )
+            self._prune_audit_locked()
         return self.get_thread(thread_id)
 
     def create_reply(
@@ -171,10 +178,10 @@ class MoltbookStore:
     ) -> dict[str, Any]:
         body = _required_text(body, "body", 20_000)
         author = _required_text(author, "author", 300)
-        reply_id = uuid4().hex[:12]
+        reply_id = uuid4().hex
         timestamp = utc_now()
         with self._lock:
-            self._enforce_rate_limit(author, rate_limit)
+            self._enforce_rate_limit(author, "create_reply", rate_limit)
             if (
                 self._connection.execute(
                     "SELECT 1 FROM threads WHERE id = ?",
@@ -201,6 +208,7 @@ class MoltbookStore:
                 """,
                 (author, thread_id, timestamp),
             )
+            self._prune_audit_locked()
         return {
             "id": reply_id,
             "thread_id": thread_id,
@@ -208,6 +216,26 @@ class MoltbookStore:
             "author": author,
             "created_at": timestamp,
         }
+
+    def _prune_audit_locked(self) -> None:
+        """Keep the forensic trail bounded: newest mutations win."""
+
+        count = self._connection.execute(
+            "SELECT COUNT(*) AS count FROM audit_log"
+        ).fetchone()["count"]
+        if int(count) <= self.AUDIT_RETENTION:
+            return
+        self._connection.execute(
+            """
+            DELETE FROM audit_log
+            WHERE id <= (
+                SELECT id FROM audit_log ORDER BY id DESC LIMIT 1 OFFSET ?
+            )
+            """,
+            # The row just past the retention window: everything at or
+            # before it goes, leaving exactly the newest retained records.
+            (self.AUDIT_RETENTION,),
+        )
 
     def audit_log(self, *, limit: int = 100) -> list[dict[str, Any]]:
         if limit < 1 or limit > 1000:
@@ -222,7 +250,9 @@ class MoltbookStore:
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def _enforce_rate_limit(self, actor: str, limit: int | None) -> None:
+    def _enforce_rate_limit(
+        self, actor: str, action: str, limit: int | None
+    ) -> None:
         if limit is None:
             return
         from datetime import timedelta
@@ -230,15 +260,17 @@ class MoltbookStore:
         cutoff = (
             datetime.now(timezone.utc) - timedelta(minutes=1)
         ).isoformat().replace("+00:00", "Z")
+        # One independent budget per (actor, action): creating threads must
+        # never consume the reply budget or vice versa.
         count = self._connection.execute(
             """
             SELECT COUNT(*) AS count FROM audit_log
-            WHERE actor = ? AND created_at >= ?
+            WHERE actor = ? AND action = ? AND created_at >= ?
             """,
-            (actor, cutoff),
+            (actor, action, cutoff),
         ).fetchone()["count"]
         if int(count) >= limit:
-            raise ValueError("mutation rate limit exceeded")
+            raise ValueError(f"rate limit exceeded for {action}")
 
 
 def _required_text(value: Any, field: str, limit: int) -> str:

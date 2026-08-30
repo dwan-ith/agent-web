@@ -66,9 +66,13 @@ class HttpSignatureReplayStore:
     def __init__(self, database: str | Path = ":memory:") -> None:
         self._lock = RLock()
         self._connection = sqlite3.connect(
-            str(database), check_same_thread=False, isolation_level=None
+            str(database),
+            check_same_thread=False,
+            isolation_level=None,
+            timeout=30.0,
         )
         self._connection.execute("PRAGMA journal_mode = WAL")
+        self._connection.execute("PRAGMA busy_timeout = 30000")
         self._connection.execute(
             """
             CREATE TABLE IF NOT EXISTS agent_web_http_nonces (

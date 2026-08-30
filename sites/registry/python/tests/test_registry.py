@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import asyncio
 import os
+import sqlite3
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
@@ -264,13 +266,105 @@ assert not any(name == 'anp' or name.startswith('anp.') for name in sys.modules)
                     allow_private_networks=True,
                     anp_browser_factory=FakeBrowser,
                 )
-                with self.assertRaisesRegex(RuntimeError, "resource limit"):
-                    indexer.index(
-                        "https://source.example/source/ad.json",
-                        max_resources=1,
-                    )
+                browser = FakeBrowser()
+                entry = browser.open_entrypoint()
+                # The bound is enforced before any further network fetch and
+                # truncates the snapshot instead of discarding the site.
+                resources, truncated = asyncio.run(indexer._crawl(
+                    origin="https://source.example",
+                    publisher="did:wba:source.example:agents:test:e1_test",
+                    entry=entry,
+                    open_resource=browser.open,
+                    max_resources=1,
+                ))
+                self.assertEqual(len(resources), 1)
+                self.assertTrue(truncated)
                 self.assertEqual(FakeBrowser.opened, [])
-                self.assertEqual(store.counts(), {"sites": 0, "resources": 0})
+            finally:
+                store.close()
+
+    def test_web_crawl_truncates_and_reports_beyond_the_resource_bound(self) -> None:
+        identity = generate_publisher_identity(
+            base_url="https://truncated.example",
+            agent_name="truncated",
+            agent_description_path="/truncated/ad.json",
+        )
+
+        def signed_resource(name: str, links: list[dict]) -> dict:
+            return sign_resource(
+                {
+                    "@context": "https://truncated.example/agent-web/0.2/context.jsonld",
+                    "@id": f"https://truncated.example/resources/{name}.json",
+                    "@type": ["AgentWebResource"],
+                    "agentWeb": {"version": AGENT_WEB_VERSION, "kind": "resource"},
+                    "name": name,
+                    "description": f"Resource {name}.",
+                    "links": links,
+                    "affordances": empty_affordances(),
+                    "provenance": {
+                        "publisher": identity.did,
+                        "createdAt": _time(-1),
+                        "updatedAt": _time(),
+                        "canonical": f"https://truncated.example/resources/{name}.json",
+                    },
+                    "data": {},
+                },
+                private_key=identity.private_key,
+                publisher=identity.did,
+                verification_method=f"{identity.did}#key-1",
+            )
+
+        entry = signed_resource(
+            "index",
+            [{"rel": "item", "href": "https://truncated.example/resources/one.json"}],
+        )
+        one = signed_resource(
+            "one",
+            [{"rel": "item", "href": "https://truncated.example/resources/two.json"}],
+        )
+        two = signed_resource("two", [])
+
+        class FakeWebBrowser:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                pass
+
+            async def discover(self) -> dict:
+                return {
+                    "publisher": identity.did,
+                    "agentWeb": {"entryPoint": entry["@id"]},
+                    "name": "Truncation site",
+                    "verificationMethod": [],
+                    "assertionMethod": [],
+                }
+
+            async def open_entrypoint(self) -> dict:
+                return entry
+
+            async def open(self, url: str) -> dict:
+                if url == one["@id"]:
+                    return one
+                if url == two["@id"]:
+                    return two
+                raise AssertionError(f"unexpected fetch: {url}")
+
+        with TemporaryDirectory() as value:
+            store = RegistryStore(Path(value) / "registry.db")
+            try:
+                indexer = RegistryIndexer(
+                    store,
+                    web_browser_factory=FakeWebBrowser,
+                )
+                result = indexer.index(
+                    "https://truncated.example/.well-known/agent-web",
+                    max_resources=2,
+                )
+                self.assertTrue(result["truncated"])
+                self.assertEqual(result["resourcesIndexed"], 2)
+                full = indexer.index(
+                    "https://truncated.example/.well-known/agent-web"
+                )
+                self.assertFalse(full["truncated"])
+                self.assertEqual(full["resourcesIndexed"], 3)
             finally:
                 store.close()
 
@@ -465,6 +559,397 @@ class RegistryFederationTests(unittest.TestCase):
                 self.assertEqual(store.search("knowledge")[0]["source"]["publisher"], publisher)
             finally:
                 store.close()
+
+
+class FeedGenerationTests(unittest.TestCase):
+    def test_generation_advances_only_when_snapshot_content_changes(self) -> None:
+        with TemporaryDirectory() as value:
+            store = RegistryStore(Path(value) / "registry.db")
+            try:
+                self.assertEqual(store.feed_generation(), 0)
+                identity = generate_publisher_identity(
+                    base_url="https://gen.example",
+                    agent_name="gen",
+                    agent_description_path="/gen/ad.json",
+                )
+                resource = sign_resource(
+                    {
+                        "@context": "https://gen.example/agent-web/0.2/context.jsonld",
+                        "@id": "https://gen.example/resources/one.json",
+                        "@type": ["AgentWebResource"],
+                        "agentWeb": {"version": AGENT_WEB_VERSION, "kind": "resource"},
+                        "name": "Generation probe",
+                        "description": "Counts feed generations.",
+                        "links": [{"rel": "self", "href": "https://gen.example/resources/one.json"}],
+                        "affordances": empty_affordances(),
+                        "provenance": {
+                            "publisher": identity.did,
+                            "createdAt": _time(-1),
+                            "updatedAt": _time(),
+                            "canonical": "https://gen.example/resources/one.json",
+                        },
+                        "data": {},
+                    },
+                    private_key=identity.private_key,
+                    publisher=identity.did,
+                    verification_method=f"{identity.did}#key-1",
+                )
+
+                def resnapshot() -> None:
+                    store.replace_verified_site(
+                        discovery_url="https://gen.example/.well-known/agent-web",
+                        description={
+                            "publisher": identity.did,
+                            "name": "Generation site",
+                        },
+                        resources=[resource],
+                    )
+
+                resnapshot()
+                self.assertEqual(store.feed_generation(), 1)
+                # Re-verifying identical content must not churn the feed
+                # generation; converged peers can legitimately skip the round.
+                resnapshot()
+                self.assertEqual(store.feed_generation(), 1)
+                # A real content change advances the generation again.
+                changed = sign_resource(
+                    {**resource, "name": "Generation probe renamed"},
+                    private_key=identity.private_key,
+                    publisher=identity.did,
+                    verification_method=f"{identity.did}#key-1",
+                )
+                store.replace_verified_site(
+                    discovery_url="https://gen.example/.well-known/agent-web",
+                    description={
+                        "publisher": identity.did,
+                        "name": "Generation site",
+                    },
+                    resources=[changed],
+                )
+                self.assertEqual(store.feed_generation(), 2)
+            finally:
+                store.close()
+
+    def test_version_two_database_migrates_and_preserves_state(self) -> None:
+        with TemporaryDirectory() as value:
+            path = Path(value) / "registry.db"
+            connection = sqlite3.connect(path)
+            try:
+                connection.executescript(
+                    """
+                    CREATE TABLE registry_sites (
+                        agent_description_url TEXT PRIMARY KEY,
+                        publisher_did TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        description_json TEXT NOT NULL,
+                        verified_at TEXT NOT NULL
+                    );
+                    CREATE TABLE registry_resources (
+                        resource_url TEXT PRIMARY KEY,
+                        agent_description_url TEXT NOT NULL
+                            REFERENCES registry_sites(agent_description_url)
+                            ON DELETE CASCADE,
+                        publisher_did TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        summary TEXT NOT NULL,
+                        types_json TEXT NOT NULL,
+                        source_document_json TEXT NOT NULL,
+                        source_digest TEXT NOT NULL,
+                        source_updated_at TEXT NOT NULL,
+                        source_expires_at TEXT,
+                        verified_at TEXT NOT NULL
+                    );
+                    CREATE TABLE registry_feed_state (
+                        id INTEGER PRIMARY KEY CHECK (id = 1),
+                        feed_generation INTEGER NOT NULL
+                    );
+                    INSERT INTO registry_feed_state (id, feed_generation)
+                        VALUES (1, 7);
+                    PRAGMA user_version = 2;
+                    """
+                )
+                connection.commit()
+            finally:
+                connection.close()
+            store = RegistryStore(path)
+            try:
+                self.assertEqual(store.feed_generation(), 7)
+            finally:
+                store.close()
+
+    def test_federation_feed_advertises_its_generation(self) -> None:
+        with TemporaryDirectory() as value:
+            root = Path(value)
+            registry = generate_publisher_identity(
+                base_url="https://feed.example",
+                agent_name="registry",
+                agent_description_path="/registry/ad.json",
+            )
+            app = create_app(
+                database=":memory:",
+                nonce_database=root / "nonces.db",
+                base_url="https://feed.example",
+                identity=registry,
+            )
+            client = TestClient(app, base_url="https://feed.example")
+            try:
+                feed = client.get("/registry/resources/federation.json").json()
+                self.assertEqual(feed["data"]["feedGeneration"], 0)
+            finally:
+                client.close()
+                app.state.close()
+
+
+class IncrementalFederationTests(unittest.TestCase):
+    def _federator(self, feed: dict, index_results: dict[str, object]):
+        class PeerBrowser:
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                pass
+
+            async def discover(self) -> dict:
+                return {"publisher": "https://peer.example/.well-known/agent-web"}
+
+            async def open_entrypoint(self) -> dict:
+                return {
+                    "links": [{
+                        "rel": "registry-federation",
+                        "href": (
+                            "https://peer.example/registry/resources/federation.json"
+                        ),
+                        "mediaType": "application/agent-web+json",
+                    }]
+                }
+
+            async def open(self, url: str) -> dict:
+                return feed
+
+        class Indexer:
+            calls: list[str] = []
+
+            def index(self, url: str, *, max_resources: int) -> dict:
+                Indexer.calls.append(url)
+                return {"resourcesIndexed": 1}
+
+        indexer = Indexer()
+        federator = RegistryFederator(indexer, browser_factory=PeerBrowser)
+        return federator, indexer
+
+    def _feed(self, generation: int | None) -> dict:
+        data: dict = {
+            "sourceCount": 1,
+            "transitiveTrust": False,
+        }
+        if generation is not None:
+            data["feedGeneration"] = generation
+        return {
+            "@id": "https://peer.example/registry/resources/federation.json",
+            "@type": ["AgentWebCollection", "RegistrySourceFeed"],
+            "links": [{
+                "rel": "source",
+                "href": "https://one.example/.well-known/agent-web",
+                "mediaType": "application/agent-web-discovery+json",
+            }],
+            "data": data,
+            "extensions": {
+                "registryFederation": {
+                    "profile": "urn:agent-web:registry-federation:0.1",
+                    "containsAssertions": False,
+                }
+            },
+        }
+
+    FEED_URL = "https://peer.example/registry/resources/federation.json"
+
+    def test_unchanged_generation_skips_all_source_verification(self) -> None:
+        federator, indexer = self._federator(self._feed(4), {})
+        result = federator.sync(
+            "https://peer.example/.well-known/agent-web",
+            known_generations={self.FEED_URL: 4},
+        )
+        self.assertEqual(indexer.calls, [])
+        self.assertEqual(result["skippedReason"], "feed-generation-unchanged")
+        self.assertEqual(result["feedGeneration"], 4)
+        self.assertEqual(result["feedUrl"], self.FEED_URL)
+
+    def test_advanced_generation_triggers_a_full_resync(self) -> None:
+        source = "https://one.example/.well-known/agent-web"
+        federator, indexer = self._federator(self._feed(5), {source: 1})
+        result = federator.sync(
+            "https://peer.example/.well-known/agent-web",
+            known_generations={self.FEED_URL: 4},
+        )
+        self.assertEqual(indexer.calls, [source])
+        self.assertIsNone(result["skippedReason"])
+        self.assertEqual(result["feedGeneration"], 5)
+
+    def test_peers_without_generations_are_always_reverified(self) -> None:
+        source = "https://one.example/.well-known/agent-web"
+        federator, indexer = self._federator(self._feed(None), {source: 1})
+        result = federator.sync(
+            "https://peer.example/.well-known/agent-web",
+            known_generations={self.FEED_URL: 0},
+        )
+        self.assertEqual(indexer.calls, [source])
+        self.assertEqual(result["skippedReason"], None)
+
+    def test_invalid_generation_type_is_rejected_before_indexing(self) -> None:
+        feed = self._feed(True)
+        federator, indexer = self._federator(feed, {})
+        with self.assertRaisesRegex(ValueError, "generation"):
+            federator.sync("https://peer.example/.well-known/agent-web")
+        self.assertEqual(indexer.calls, [])
+
+    def test_state_file_round_trips_atomically(self) -> None:
+        from registry_site import FederationStateFile
+
+        with TemporaryDirectory() as value:
+            state = FederationStateFile(Path(value) / "state" / "gens.json")
+            self.assertEqual(state.load(), {})
+            state.store({self.FEED_URL: 7})
+            self.assertEqual(state.load(), {self.FEED_URL: 7})
+            broken = Path(value) / "broken.json"
+            broken.write_text('["not-an-object"]', encoding="utf-8")
+            with self.assertRaises(ValueError):
+                FederationStateFile(broken).load()
+
+
+class SearchRankingTests(unittest.TestCase):
+    def _store_with(self, entries: list[dict]) -> RegistryStore:
+        store = RegistryStore(":memory:")
+        identity = generate_publisher_identity(
+            base_url="https://rank.example",
+            agent_name="rank",
+            agent_description_path="/rank/ad.json",
+        )
+        resources = []
+        for index, entry in enumerate(entries):
+            url = f"https://rank.example/resources/{index}.json"
+            created = entry.get("createdAt", _time(-100))
+            resources.append(
+                sign_resource(
+                    {
+                        "@context": "https://rank.example/agent-web/0.2/context.jsonld",
+                        "@id": url,
+                        "@type": entry.get("types", ["AgentWebResource"]),
+                        "agentWeb": {"version": AGENT_WEB_VERSION, "kind": "resource"},
+                        "name": entry["name"],
+                        "description": entry.get("summary", ""),
+                        "links": [{"rel": "self", "href": url}],
+                        "affordances": empty_affordances(),
+                        "provenance": {
+                            "publisher": identity.did,
+                            "createdAt": created,
+                            "updatedAt": entry.get("updatedAt", created),
+                            "canonical": url,
+                        },
+                        "data": {},
+                    },
+                    private_key=identity.private_key,
+                    publisher=identity.did,
+                    verification_method=f"{identity.did}#key-1",
+                )
+            )
+        store.replace_verified_site(
+            discovery_url="https://rank.example/.well-known/agent-web",
+            description={"publisher": identity.did, "name": "Ranking site"},
+            resources=resources,
+        )
+        return store
+
+    def test_exact_name_beats_prefix_beats_summary_mention(self) -> None:
+        store = self._store_with([
+            {"name": "Local weather notes", "summary": "weather"},
+            {"name": "Weather station pro"},
+            {"name": "Weather"},
+        ])
+        try:
+            names = [row["name"] for row in store.search("weather")]
+            self.assertEqual(
+                names,
+                ["Weather", "Weather station pro", "Local weather notes"],
+            )
+        finally:
+            store.close()
+
+    def test_semantic_type_token_outranks_plain_mentions(self) -> None:
+        store = self._store_with([
+            {
+                "name": "Hub",
+                "summary": "weather things",
+                "types": ["AgentWebResource"],
+            },
+            {
+                "name": "Hub",
+                "summary": "things",
+                "types": ["WeatherForecast"],
+            },
+        ])
+        try:
+            names = [row["name"] for row in store.search("weather")]
+            # Identical names and URL order would leave the tie to chance;
+            # the typed resource must win on its semantic-type word match.
+            self.assertEqual(names[0], "Hub")
+            self.assertEqual(
+                store.search("weather")[0]["source"]["resource"],
+                "https://rank.example/resources/1.json",
+            )
+        finally:
+            store.close()
+
+    def test_equal_relevance_prefers_the_fresher_source(self) -> None:
+        fresh = (datetime.now(timezone.utc)).isoformat().replace("+00:00", "Z")
+        stale_updated = datetime.now(timezone.utc) - timedelta(days=400)
+        stale = stale_updated.isoformat().replace("+00:00", "Z")
+        store = self._store_with([
+            {
+                "name": "Alpha service",
+                "summary": "weather",
+                "updatedAt": stale,
+                "createdAt": (stale_updated - timedelta(hours=1))
+                .isoformat()
+                .replace("+00:00", "Z"),
+            },
+            {"name": "Beta service", "summary": "weather", "updatedAt": fresh},
+        ])
+        try:
+            names = [row["name"] for row in store.search("weather")]
+            self.assertEqual(names, ["Beta service", "Alpha service"])
+        finally:
+            store.close()
+
+
+class SearchRateLimitTests(unittest.TestCase):
+    def test_search_endpoint_is_rate_limited_per_client(self) -> None:
+        with TemporaryDirectory() as value:
+            root = Path(value)
+            registry = generate_publisher_identity(
+                base_url="https://limited.example",
+                agent_name="registry",
+                agent_description_path="/registry/ad.json",
+            )
+            app = create_app(
+                database=":memory:",
+                nonce_database=root / "nonces.db",
+                base_url="https://limited.example",
+                identity=registry,
+                search_rate_limit=(1, 60.0),
+            )
+            client = TestClient(app, base_url="https://limited.example")
+            try:
+                first = client.get(
+                    "/registry/resources/search.json?q=anything"
+                )
+                second = client.get(
+                    "/registry/resources/search.json?q=anything"
+                )
+                self.assertEqual(first.status_code, 200)
+                self.assertEqual(second.status_code, 429)
+                self.assertIn("Retry-After", second.headers)
+                # Unrelated public surfaces are unaffected by the search rule.
+                self.assertEqual(client.get("/health").status_code, 200)
+            finally:
+                client.close()
+                app.state.close()
 
 
 if __name__ == "__main__":

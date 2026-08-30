@@ -60,7 +60,9 @@ class OpenMeteoProvider:
         self._max_response_bytes = max_response_bytes
         self._transport = transport
         self._cache: dict[str, tuple[datetime, dict[str, Any]]] = {}
-        self._lock = asyncio.Lock()
+        # One lock per location so a slow upstream fetch for one slug never
+        # blocks refreshes for the others.
+        self._locks: dict[str, asyncio.Lock] = {}
 
     @property
     def locations(self) -> tuple[Location, ...]:
@@ -75,11 +77,22 @@ class OpenMeteoProvider:
         cached = self._cache.get(normalized)
         if cached and cached[0] > now:
             return deepcopy(cached[1])
-        async with self._lock:
+        lock = self._locks.get(normalized)
+        if lock is None:
+            lock = self._locks.setdefault(normalized, asyncio.Lock())
+        async with lock:
             cached = self._cache.get(normalized)
             if cached and cached[0] > datetime.now(timezone.utc):
                 return deepcopy(cached[1])
-            record = await self._fetch(location)
+            try:
+                record = await self._fetch(location)
+            except Exception:
+                stale = self._cache.get(normalized)
+                if stale is None:
+                    raise
+                record = _stale_record(
+                    stale[1], cache_seconds=self._cache_seconds
+                )
             expiry = datetime.now(timezone.utc) + timedelta(
                 seconds=self._cache_seconds
             )
@@ -109,13 +122,17 @@ class OpenMeteoProvider:
             ) as response:
                 response.raise_for_status()
                 content_length = response.headers.get("content-length")
-                if (
-                    content_length
-                    and int(content_length) > self._max_response_bytes
-                ):
-                    raise ValueError(
-                        "Open-Meteo response exceeds configured size limit"
-                    )
+                if content_length is not None:
+                    try:
+                        advertised = int(content_length)
+                    except ValueError as exc:
+                        raise ValueError(
+                            "Open-Meteo returned an invalid Content-Length header"
+                        ) from exc
+                    if advertised > self._max_response_bytes:
+                        raise ValueError(
+                            "Open-Meteo response exceeds configured size limit"
+                        )
                 media_type = response.headers.get("content-type", "").lower()
                 if "application/json" not in media_type:
                     raise ValueError("Open-Meteo returned a non-JSON response")
@@ -126,7 +143,10 @@ class OpenMeteoProvider:
                         raise ValueError(
                             "Open-Meteo response exceeds configured size limit"
                         )
-        payload = json.loads(body)
+        try:
+            payload = json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Open-Meteo returned malformed JSON") from exc
         current = payload.get("current")
         if not isinstance(current, Mapping):
             raise ValueError("Open-Meteo response has no current weather object")
@@ -187,6 +207,27 @@ class StaticForecastProvider:
             return deepcopy(self._records[slug.strip().lower()])
         except KeyError as exc:
             raise KeyError(f"unknown forecast location '{slug}'") from exc
+
+
+def _stale_record(
+    previous: Mapping[str, Any], *, cache_seconds: int
+) -> dict[str, Any]:
+    """Re-attest a cached record after an upstream failure.
+
+    The observation and its original ``retrievedAt`` are preserved exactly:
+    this publisher did not re-observe the upstream, so it must not claim a
+    fresh retrieval. ``stale`` marks the re-attestation, ``reverifiedAt``
+    carries when the publisher last tried and failed to refresh, and
+    ``validThrough`` extends only the publisher's own serve window.
+    """
+
+    now = datetime.now(timezone.utc)
+    return {
+        **deepcopy(dict(previous)),
+        "stale": True,
+        "reverifiedAt": _timestamp(now),
+        "validThrough": _timestamp(now + timedelta(seconds=cache_seconds)),
+    }
 
 
 def _weather_condition(code: int) -> str:

@@ -106,5 +106,6 @@ is verified against publisher Web discovery by the browser.
 Independent implementations are expected to reproduce the exact signature
 base and wire fields. The repository test vectors cover tampered body, method,
 target URI, caller, expired signatures, unauthorized keys, and nonce replay.
-Cross-language cryptographic vectors remain a required next milestone before
-this profile can leave experimental status.
+Cross-language conformance is implemented: Python and TypeScript sign and
+verify from one committed vector file, and both languages also verify
+`eddsa-jcs-2022` resource proofs against a shared Data Integrity vector file.

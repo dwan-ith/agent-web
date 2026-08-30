@@ -7,6 +7,8 @@ import json
 import sys
 from typing import Any
 
+import httpx
+
 from libagentweb.browser import AgentBrowser, RemoteANPError
 from libagentweb.resource import ResourceValidationError
 
@@ -35,6 +37,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="additional HTTP(S) origin allowed during cross-site traversal",
     )
+    crawl.add_argument(
+        "--max-resources",
+        type=int,
+        default=100,
+        help="traversal resource limit (default: 100)",
+    )
+    crawl.add_argument(
+        "--timeout",
+        type=float,
+        default=8.0,
+        help="per-request timeout in seconds (default: 8)",
+    )
     _identity_arguments(crawl)
 
     call = commands.add_parser("call", help="invoke an ANP JSON-RPC method")
@@ -62,13 +76,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "open":
             result = _browser(args, args.description).open(args.url)
         elif args.command == "crawl":
+            if args.max_resources < 1:
+                raise ValueError("--max-resources must be positive")
+            if not 0 < args.timeout <= 120:
+                raise ValueError("--timeout must be in (0, 120] seconds")
             origins = set(args.allow_origin)
             browser = _browser(
                 args,
                 args.agent_description_url,
                 allowed_origins=origins or None,
+                timeout=args.timeout,
             )
-            result = browser.traverse()
+            result = browser.traverse(max_resources=args.max_resources)
         else:
             params = json.loads(args.params)
             if not isinstance(params, dict):
@@ -83,10 +102,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (
         ConnectionError,
+        OSError,
         PermissionError,
         RemoteANPError,
         ResourceValidationError,
         ValueError,
+        httpx.HTTPError,
     ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -115,6 +136,7 @@ def _browser(
     description_url: str,
     *,
     allowed_origins: set[str] | None = None,
+    timeout: float = 8.0,
 ) -> AgentBrowser:
     if description_url.startswith("https://"):
         return AgentBrowser(
@@ -123,6 +145,7 @@ def _browser(
             private_key_path=args.private_key,
             allowed_origins=allowed_origins,
             allow_private_networks=args.allow_private_network,
+            timeout=timeout,
         )
     browser = AgentBrowser.from_handle(
         description_url,

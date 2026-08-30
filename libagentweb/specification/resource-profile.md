@@ -26,6 +26,12 @@ Schema validity alone is not proof validity. A consumer MUST obtain an
 origin-authorized controller document, verify assertion-method authorization,
 cryptographically verify the proof, and reject expired resources.
 
+Publishers SHOULD set `provenance.expiresAt` on every resource whose content
+is volatile; an unbounded lifetime means a verification cache or offline copy
+of the document stays acceptable forever. Proof `created` timestamps are not
+expiry: only `provenance.expiresAt` bounds how long a verified document may be
+trusted without refetching it from its canonical URL.
+
 ## Web discovery
 
 An origin SHOULD publish `/.well-known/agent-web` using
@@ -53,6 +59,30 @@ negotiation or a typed `Link` with media type `application/agent-web+json`.
 Browsers MUST bound bytes, time, resource count, redirects, origins, and network
 destinations.
 
+## Collections and pagination
+
+A collection resource MUST stay bounded: an entry or directory resource that
+could grow without limit MUST advertise its members through paginated child
+collections instead of embedding every member inline. A pagination page is an
+ordinary signed collection whose `self` link matches its transport URL exactly,
+whose `item` links address that page's members, and which carries a `next`
+link when a further page exists and a `prev` link when one does. Publishers
+SHOULD keep page sizes bounded (the reference publishers use 50) and report
+the total count in `data` alongside the page's own count. A consumer follows
+`next` links under its own traversal budget; absence of a `next` link means
+the collection ended.
+
+## Action results
+
+An invoked action returns ordinary signed Agent Web resources. The response
+resource's `@id` MUST use the serving origin of the advertised interface URL.
+When the interface origin equals the discovery origin, the result is verified
+against that discovery document as usual. When an action is served by another
+allowed origin, browsers MUST fetch that origin's own `/.well-known/agent-web`,
+check that the result's publisher matches it, and verify the proof against its
+authorized keys. A signature from the advertising site does not vouch for a
+document served by a different origin.
+
 ## Actions
 
 An action declares input/output JSON Schemas, safety, idempotency,
@@ -65,11 +95,12 @@ idempotency do not grant authorization and do not override HTTP method
 semantics. `user-presence-required` requires explicit confirmation by an
 interactive browser.
 
-The present profile does not yet define protocol-neutral client authentication
-for state-changing HTTP actions. Publishers MUST enforce their own
-authentication, capabilities, quotas, and business policy. The reference
-deployment retains its audited ANP HTTP-signature adapter for protected
-mutations until a Web-native binding is specified and tested.
+The present profile defines protocol-neutral client authentication for
+state-changing HTTP actions in `authenticated-http-actions.md` (experimental):
+a strict RFC 9421 Ed25519 profile with RFC 9530 body digests, HTTPS caller
+controllers, short lifetimes, and durable one-use nonces. Publishers MUST
+still enforce their own authorization, capabilities, quotas, and business
+policy; a valid signature grants no action authority by itself.
 
 ## Publisher requirements
 

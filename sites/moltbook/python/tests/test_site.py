@@ -222,6 +222,38 @@ class SecureMoltbookTests(unittest.TestCase):
         )
         self.assertNotIn("author", action["input"]["properties"])
 
+    def test_rate_limits_are_independent_per_action(self) -> None:
+        store = self.app.state.moltbook_store
+        # Exhaust the thread budget only; replies must keep their own budget.
+        for index in range(30):
+            store.create_thread(
+                title=f"Thread {index}",
+                body="Independent per-action budgets.",
+                author=self.caller.did,
+                rate_limit=30,
+            )
+        with self.assertRaises(ValueError):
+            store.create_thread(
+                title="One too many",
+                body="The thread budget is spent.",
+                author=self.caller.did,
+                rate_limit=30,
+            )
+        reply = store.create_reply(
+            thread_id=store.list_threads()[0]["id"],
+            body="Reply budgets are separate from thread budgets.",
+            author=self.caller.did,
+            rate_limit=60,
+        )
+        self.assertTrue(reply["id"])
+        with self.assertRaises(ValueError):
+            store.create_reply(
+                thread_id=store.list_threads()[0]["id"],
+                body="Reply budget exhausted.",
+                author=self.caller.did,
+                rate_limit=1,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

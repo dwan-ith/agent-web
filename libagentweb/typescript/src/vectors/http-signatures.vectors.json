@@ -1,0 +1,121 @@
+{
+  "callerController": {
+    "authentication": [
+      "https://browser.example/.well-known/agent-web-caller#key-1"
+    ],
+    "id": "https://browser.example/.well-known/agent-web-caller",
+    "verificationMethod": [
+      {
+        "controller": "https://browser.example/.well-known/agent-web-caller",
+        "id": "https://browser.example/.well-known/agent-web-caller#key-1",
+        "publicKeyMultibase": "z6MkgXcp91w8iYVm2rZH5djTschQGrec6tFgJbQiLKv4GKev",
+        "type": "Multikey"
+      }
+    ]
+  },
+  "description": "Byte-stable vectors for the strict Agent Web RFC 9421 profile. The Ed25519 seed is a project-fixed public test key committed here on purpose; every implementation must derive the identical public key from seedHex.",
+  "expectedHeaders": {
+    "agent-web-caller": "https://browser.example/.well-known/agent-web-caller",
+    "content-digest": "sha-256=:MmY2z5bNmHtrNboKA19qK7OkvnvbkaWPQClCK+L+wJY=:",
+    "content-type": "application/json",
+    "signature": "agentweb=:anTy6Kq9hUN4sXHE2WXC0NSL7qgZ3dJw3pH0pHMyvLFB+dAUrfHjAPhv2myJe4DZZANHJFYC18Pbcx+AV5E+AQ==:",
+    "signature-input": "agentweb=(\"@method\" \"@target-uri\" \"content-digest\" \"content-type\" \"agent-web-caller\");created=1760000000;expires=1760000120;keyid=\"https://browser.example/.well-known/agent-web-caller#key-1\";nonce=\"agent-web-conformance-nonce-001\";alg=\"ed25519\""
+  },
+  "fixed": {
+    "created": 1760000000,
+    "expires": 1760000120,
+    "nonce": "agent-web-conformance-nonce-001",
+    "now": 1760000000
+  },
+  "key": {
+    "keyId": "https://browser.example/.well-known/agent-web-caller#key-1",
+    "publicKeyMultibase": "z6MkgXcp91w8iYVm2rZH5djTschQGrec6tFgJbQiLKv4GKev",
+    "secondSeedHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+    "seedHex": "9d61b19deffd2a60588dc0da7f0c4b1dd0e86ab4a0f2e4ac17432c21de4649ec"
+  },
+  "negatives": [
+    {
+      "bodyBase64": "eyJ0b3BpYyI6ImZvcmdlZCJ9",
+      "expectedError": "Content-Digest does not match the request body",
+      "name": "tampered-body"
+    },
+    {
+      "expectedError": "HTTP message signature is invalid",
+      "method": "PUT",
+      "name": "wrong-method"
+    },
+    {
+      "expectedError": "HTTP message signature is invalid",
+      "name": "wrong-target-uri",
+      "targetUri": "https://native.example/actions/annotations?redirected=true"
+    },
+    {
+      "expectedError": "caller does not match its controller document",
+      "headers": {
+        "agent-web-caller": "https://attacker.example/caller"
+      },
+      "name": "swapped-caller-header"
+    },
+    {
+      "expectedError": "signature has expired",
+      "name": "expired-signature",
+      "verifyNow": 1760000151
+    },
+    {
+      "expectedError": "signature was created in the future",
+      "name": "created-in-the-future",
+      "verifyNow": 1759996400
+    },
+    {
+      "controllerDocument": {
+        "authentication": [
+          "https://browser.example/.well-known/agent-web-caller#other-key"
+        ],
+        "id": "https://browser.example/.well-known/agent-web-caller",
+        "verificationMethod": [
+          {
+            "controller": "https://browser.example/.well-known/agent-web-caller",
+            "id": "https://browser.example/.well-known/agent-web-caller#key-1",
+            "publicKeyMultibase": "z6MkgXcp91w8iYVm2rZH5djTschQGrec6tFgJbQiLKv4GKev",
+            "type": "Multikey"
+          }
+        ]
+      },
+      "expectedError": "signature key is not authorized for authentication",
+      "name": "unauthorized-authentication-key"
+    },
+    {
+      "expectedError": "Signature-Input is outside the Agent Web profile",
+      "headers": {
+        "signature-input": "agentweb=(\"@method\" \"@target-uri\" \"content-digest\" \"content-type\" \"agent-web-caller\");created=1760000000;expires=1760000120;keyid=\"https://browser.example/.well-known/agent-web-caller#key-1\";nonce=\"agent-web-conformance-nonce-001\""
+      },
+      "name": "malformed-signature-input"
+    },
+    {
+      "controllerDocument": {
+        "authentication": [
+          "https://browser.example/.well-known/agent-web-caller#key-1"
+        ],
+        "id": "https://browser.example/.well-known/agent-web-caller",
+        "verificationMethod": [
+          {
+            "controller": "https://browser.example/.well-known/agent-web-caller",
+            "id": "https://browser.example/.well-known/agent-web-caller#key-1",
+            "publicKeyMultibase": "z6MkneMkZqwqRiU5mJzSG3kDwzt9P8C59N4NGTfBLfSGE7c7",
+            "type": "Multikey"
+          }
+        ]
+      },
+      "expectedError": "HTTP message signature is invalid",
+      "name": "foreign-key-signature"
+    }
+  ],
+  "profile": "urn:agent-web:http-signature-conformance:0.1",
+  "request": {
+    "bodyBase64": "eyJ0b3BpYyI6ImNvbmZvcm1hbmNlIiwidGV4dCI6ImNyb3NzLWxhbmd1YWdlIHZlY3RvciJ9",
+    "caller": "https://browser.example/.well-known/agent-web-caller",
+    "contentType": "application/json",
+    "method": "POST",
+    "targetUri": "https://native.example/actions/annotations"
+  }
+}

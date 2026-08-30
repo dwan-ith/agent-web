@@ -19,3 +19,25 @@ Do not grant key creation, configuration, rotation, export, backup, import, decr
 The current ANP verifier library still accepts PEM keys for signing its short-lived bearer access tokens. Vault-backed publisher mode therefore mounts a separate `access-token-key.pem`. That key is not present in the DID document and cannot sign Agent Web resources. Replicas that accept each other's bearer tokens must share this access-token key through a secret manager, or route a token to the issuing replica until the ANP library exposes a remote JWT signer. This is a documented residual custody and HA boundary, not a claim that every cryptographic key is already HSM-backed.
 
 Apply `compose.json` together with `compose.vault.json`. Each identity mount then contains only `did.json` and `access-token-key.pem`; its operations mount also contains `vault.token`. Before serving traffic, use `verify_vault_signer.py` to prove that the configured key matches the DID and can sign a fresh challenge. Preserve the JSON evidence, Vault audit event, key configuration, key version, and HSM/KMS attestation in the external review bundle.
+
+## Platform file permissions
+
+`identity.py` writes private keys with exclusive create and `chmod 0600`.
+On POSIX that is the whole story. On Windows (including the NTFS volumes this
+repository is developed on), `os.chmod` maps to little more than the read-only
+bit and grants nothing like a POSIX file mode; anyone in the local `Users`
+group can typically read files created under a user profile until an ACL is
+applied. Treat `chmod 0600` as best-effort there and apply explicit ACLs at
+deployment time, for example:
+
+```powershell
+# After provisioning an identity directory on NTFS:
+icacls .\identity /inheritance:r
+icacls .\identity /grant:r "$env:USERNAME:(OI)(CI)F" /remove "Users" "Authenticated Users"
+```
+
+The container deployment avoids the problem entirely: identity directories
+are mounted from secrets with no group/world access inside the Restricted pod.
+For native-knowledge operators supplying PEM keys directly, prefer the same
+identity-provisioning path (`agent-web-identity provision`) so exclusive
+create applies, or set restrictive ACLs manually before first use.

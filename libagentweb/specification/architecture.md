@@ -142,9 +142,12 @@ Implemented now:
   independent live re-verification of every original source;
 - TypeScript and Python resource consumers.
 
-The next ecosystem milestones are scheduled/incremental registry convergence,
+The next ecosystem milestones are scheduled/incremental registry convergence
+(generation-based skip is implemented; operator scheduling remains),
 ranking and abuse resistance, subscription/event delivery,
-capability delegation, cross-language HTTP-signature vectors, bridge
-transformation metadata, cross-language cryptographic conformance, and a public
-multi-operator deployment. Commerce follows only after identity, authorization,
-replay containment, receipts, and dispute semantics interoperate independently.
+capability delegation, bridge transformation metadata, and a public
+multi-operator deployment. Cross-language cryptographic conformance is
+implemented: Python and TypeScript verify `eddsa-jcs-2022` proofs and the
+HTTP-signature profile from the same committed vector files. Commerce follows
+only after identity, authorization, replay containment, receipts, and dispute
+semantics interoperate independently.

@@ -8,12 +8,15 @@ import unittest
 from libagentweb.resource import (
     ResourceValidationError,
     links_by_rel,
+    load_resource_schema,
     validate_resource,
     walk_linked_resources,
 )
 
+from jsonschema import Draft202012Validator
 
 FIXTURES = Path(__file__).resolve().parents[2] / "conformance"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 def fixture(folder: str, name: str) -> dict:
@@ -66,6 +69,26 @@ class ResourceProfileTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ResourceValidationError, "publisher"):
             validate_resource(wrong_signer)
+
+
+class ResourceSchemaContractTests(unittest.TestCase):
+    def test_typescript_schema_copy_matches_the_canonical_schema(self) -> None:
+        canonical = (
+            REPOSITORY_ROOT
+            / "libagentweb/python/src/libagentweb/schemas/agent-web-resource.schema.json"
+        )
+        typescript_copy = (
+            REPOSITORY_ROOT
+            / "libagentweb/typescript/src/schemas/agent-web-resource.schema.json"
+        )
+        self.assertEqual(
+            canonical.read_bytes(),
+            typescript_copy.read_bytes(),
+            "typescript/src/schemas copy has drifted from the canonical schema",
+        )
+
+    def test_packaged_schema_is_a_valid_draft_2020_12_schema(self) -> None:
+        Draft202012Validator.check_schema(load_resource_schema())
 
 
 if __name__ == "__main__":

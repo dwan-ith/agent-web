@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import sqlite3
 from threading import RLock
 from typing import Any, Iterable, Mapping
 from uuid import uuid4
+
+
+SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _now() -> str:
@@ -20,9 +24,13 @@ class KnowledgeStore:
     def __init__(self, database: str | Path = ":memory:") -> None:
         self._lock = RLock()
         self._connection = sqlite3.connect(
-            str(database), check_same_thread=False, isolation_level=None
+            str(database),
+            check_same_thread=False,
+            isolation_level=None,
+            timeout=30.0,
         )
         self._connection.row_factory = sqlite3.Row
+        self._connection.execute("PRAGMA busy_timeout = 30000")
         self._connection.executescript(
             """
             PRAGMA journal_mode = WAL;
@@ -116,6 +124,10 @@ class KnowledgeStore:
             raise ValueError("annotation text must contain 1 to 4000 characters")
         if not author.startswith("https://") or len(author) > 2048:
             raise ValueError("annotation author must be an HTTPS controller")
+        if not isinstance(topic_slug, str) or not SLUG_PATTERN.fullmatch(
+            topic_slug
+        ) or len(topic_slug) > 100:
+            raise ValueError("annotation topic must be a valid topic slug")
         annotation_id = uuid4().hex
         created_at = _now()
         with self._lock:
@@ -144,16 +156,31 @@ class KnowledgeStore:
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def annotations(self, *, limit: int = 100) -> list[dict[str, Any]]:
+    def annotations(
+        self, *, limit: int = 50, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """Return one bounded, deterministically ordered page of annotations."""
+
         if isinstance(limit, bool) or limit < 1 or limit > 100:
             raise ValueError("limit must be between 1 and 100")
+        if isinstance(offset, bool) or offset < 0 or offset > 100_000:
+            raise ValueError("offset must be a non-negative page offset")
         with self._lock:
             rows = self._connection.execute(
                 """SELECT * FROM knowledge_annotations
-                   ORDER BY created_at DESC, annotation_id DESC LIMIT ?""",
-                (limit,),
+                   ORDER BY created_at DESC, annotation_id DESC LIMIT ? OFFSET ?""",
+                (limit, offset),
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def count_annotations(self) -> int:
+        """Return the total annotation count regardless of any listing limit."""
+
+        with self._lock:
+            row = self._connection.execute(
+                "SELECT COUNT(*) FROM knowledge_annotations"
+            ).fetchone()
+        return int(row[0])
 
     def integrity_check(self) -> bool:
         with self._lock:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -134,13 +135,101 @@ class NativeKnowledgeSiteTests(unittest.TestCase):
         self.assertEqual(stored.json()["@id"], resource["@id"])
         entry = self.client.get("/resources/index").json()
         self.assertEqual(entry["data"]["annotationCount"], 1)
-        self.assertTrue(any(link["href"] == resource["@id"] for link in entry["links"]))
+        # Annotations are reachable through the bounded paginated collection.
+        collection_link = next(
+            link for link in entry["links"]
+            if link["href"].endswith("/resources/annotations.json")
+        )
+        self.assertEqual(collection_link["rel"], "item")
+        page = self.client.get("/resources/annotations.json").json()
+        self.assertEqual(page["data"]["count"], 1)
+        self.assertTrue(
+            any(link["href"] == resource["@id"] for link in page["links"])
+        )
+        self.assertNotIn("next", {link["rel"] for link in page["links"]})
 
         replay = self.client.post(
             "/actions/annotations", content=body, headers=headers
         )
         self.assertEqual(replay.status_code, 401)
         self.assertIn("replayed", replay.text)
+
+    def test_annotations_collection_paginates_with_next_links(self) -> None:
+        store = self.app.state.knowledge_store
+        for index in range(120):
+            store.create_annotation(
+                topic_slug="agent-web",
+                author=self.caller,
+                text=f"Bounded annotation number {index}",
+            )
+        first = self.client.get("/resources/annotations.json").json()
+        self.assertEqual(first["data"]["page"], 0)
+        self.assertEqual(first["data"]["count"], 50)
+        self.assertEqual(first["data"]["annotationCount"], 120)
+        next_links = [link for link in first["links"] if link["rel"] == "next"]
+        self.assertEqual(len(next_links), 1)
+        second = self.client.get(next_links[0]["href"]).json()
+        self.assertEqual(second["@id"], next_links[0]["href"])
+        self.assertEqual(second["data"]["page"], 1)
+        prev_links = [link for link in second["links"] if link["rel"] == "prev"]
+        self.assertEqual(len(prev_links), 1)
+        last = self.client.get(
+            "/resources/annotations.json?page=2"
+        ).json()
+        self.assertEqual(last["data"]["count"], 20)
+        self.assertNotIn("next", {link["rel"] for link in last["links"]})
+
+    def test_annotation_rate_limit_is_per_caller(self) -> None:
+        headers = []
+        bodies = []
+        for index in range(30):
+            body = json.dumps(
+                {"text": f"Annotation {index}", "topic": "agent-web"}
+            ).encode()
+            bodies.append(body)
+            headers.append(sign_agent_web_request(
+                method="POST",
+                target_uri="https://native.example/actions/annotations",
+                body=body,
+                content_type="application/json",
+                caller=self.caller,
+                signer=self.signer,
+            ))
+        for index in range(30):
+            response = self.client.post(
+                "/actions/annotations", content=bodies[index], headers=headers[index]
+            )
+            self.assertEqual(response.status_code, 201, response.text)
+        overflow = sign_agent_web_request(
+            method="POST",
+            target_uri="https://native.example/actions/annotations",
+            body=bodies[0],
+            content_type="application/json",
+            caller=self.caller,
+            signer=self.signer,
+        )
+        limited = self.client.post(
+            "/actions/annotations", content=bodies[0], headers=overflow
+        )
+        self.assertEqual(limited.status_code, 429)
+
+    def test_annotation_rejects_malformed_topic_slugs(self) -> None:
+        body = json.dumps(
+            {"text": "Bad topic", "topic": "../escape"}
+        ).encode()
+        headers = sign_agent_web_request(
+            method="POST",
+            target_uri="https://native.example/actions/annotations",
+            body=body,
+            content_type="application/json",
+            caller=self.caller,
+            signer=self.signer,
+        )
+        response = self.client.post(
+            "/actions/annotations", content=body, headers=headers
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("topic", response.text)
 
     def test_protected_annotation_denies_unsigned_and_tampered_requests(self) -> None:
         unsigned = self.client.post(

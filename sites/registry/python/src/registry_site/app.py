@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from hashlib import sha256
 from html import escape
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from agent_web_server import (
+    DEFAULT_PUBLIC_GET_PATHS,
+    REGISTRY_PUBLIC_GET_PATHS,
+    RateLimitRule,
     PublisherIdentity,
     SecurityConfig,
+    client_ip_key,
     generate_publisher_identity,
+    install_rate_limit,
     install_security,
     install_maintenance,
     install_observability,
@@ -29,7 +33,6 @@ from libagentweb import (
     RESOURCE_MEDIA_TYPE,
     anp_action,
     empty_affordances,
-    sign_resource,
 )
 
 from .store import RegistryStore
@@ -284,7 +287,10 @@ def _build_agent(
                     },
                     "data": {
                         "sourceCount": len(sources),
-                        "verificationRequired": "independent-live-source-verification",
+                        "feedGeneration": store.feed_generation(),
+                        "verificationRequired": (
+                            "independent-live-source-verification"
+                        ),
                         "transitiveTrust": False,
                     },
                     "extensions": {
@@ -309,6 +315,7 @@ def create_app(
     allowed_origins: tuple[str, ...] = (),
     metrics_token: str | None = None,
     operator_token: str | None = None,
+    search_rate_limit: tuple[int, float] = (60, 60.0),
 ) -> FastAPI:
     base_url = base_url.rstrip("/")
     identity = identity or generate_publisher_identity(
@@ -378,10 +385,30 @@ def create_app(
             identity=identity,
             base_url=base_url,
             nonce_database=nonce_database,
+            public_get_paths=DEFAULT_PUBLIC_GET_PATHS + REGISTRY_PUBLIC_GET_PATHS,
             allowed_origins=allowed_origins,
         ),
     )
     install_maintenance(app, operator_token=operator_token, base_url=base_url)
+    # Abuse resistance for the hot public read surface. Keyed by direct peer
+    # address; operators behind proxies must supply a trusted key function.
+    # Both the JSON and HTML search endpoints share one rule so the human
+    # view cannot be used to bypass the machine view's budget.
+    rate_limiter = install_rate_limit(
+        app,
+        [
+            RateLimitRule(
+                name="registry-search",
+                max_requests=search_rate_limit[0],
+                window_seconds=float(search_rate_limit[1]),
+                key=client_ip_key,
+                matches=lambda request: request.url.path in {
+                    "/registry/resources/search.json",
+                    "/directory",
+                },
+            )
+        ],
+    )
     readiness = {
         "registryDatabase": store.integrity_check,
         "nonceDatabase": nonce_store.integrity_check,
@@ -399,6 +426,7 @@ def create_app(
     app.state.publisher_identity = identity
     app.state.nonce_store = nonce_store
     app.state.handle_store = handle_store
+    app.state.rate_limiter = rate_limiter
 
     def close() -> None:
         nonce_store.close()

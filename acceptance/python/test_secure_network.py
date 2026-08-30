@@ -205,19 +205,25 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
             f"{cls.native_base}/.well-known/agent-web"
         )
         cls.graphical = start_site(
-            lambda base_url: create_browser_app(
-                identity=cls.browser_identity,
-                did_document_path=cls.browser_did_path,
-                private_key_path=cls.browser_key_path,
-                base_url=base_url,
-                allow_private_networks=True,
-                caller_controller=cls.web_caller_controller,
-                caller_signer=cls.web_caller_signer,
-            ),
+            lambda base_url: cls._build_browser_daemon(base_url),
             port=browser_port,
             tls_certificate=str(cls.tls.certificate),
             tls_private_key=str(cls.tls.private_key),
         )
+
+    @classmethod
+    def _build_browser_daemon(cls, base_url: str):
+        app = create_browser_app(
+            identity=cls.browser_identity,
+            did_document_path=cls.browser_did_path,
+            private_key_path=cls.browser_key_path,
+            base_url=base_url,
+            allow_private_networks=True,
+            caller_controller=cls.web_caller_controller,
+            caller_signer=cls.web_caller_signer,
+        )
+        cls.daemon_token = app.state.daemon_token
+        return app
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -298,7 +304,9 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
     def test_registry_indexes_only_verified_sources_and_preserves_provenance(self) -> None:
         self.assertEqual(self.moltbook_index_result["resourcesIndexed"], 1)
         self.assertEqual(self.forecast_index_result["resourcesIndexed"], 4)
-        self.assertEqual(self.native_index_result["resourcesIndexed"], 3)
+        # Entry collection + two topics + the bounded annotations collection
+        # (annotations moved to their own paginated child collection).
+        self.assertEqual(self.native_index_result["resourcesIndexed"], 4)
         self.assertEqual(self.native_index_result["binding"], "Agent Web")
         browser = AgentBrowser(
             f"{self.registry_base}/registry/ad.json",
@@ -371,17 +379,34 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
         )
 
     def test_graphical_daemon_performs_live_discovery_open_and_action(self) -> None:
+        token_headers = {"X-Agent-Web-Browser-Token": self.daemon_token}
         with httpx.Client(
             verify=ssl.create_default_context(
                 cafile=str(self.tls.ca_certificate)
             ),
             timeout=15,
         ) as client:
-            page = client.get(f"{self.browser_base}/")
+            # The local daemon gates both its UI and API behind a session
+            # token; unauthenticated loopback callers are refused.
+            self.assertEqual(
+                client.get(f"{self.browser_base}/").status_code, 401
+            )
+            self.assertEqual(
+                client.post(
+                    f"{self.browser_base}/api/connect",
+                    json={"agentDescriptionUrl": f"{self.native_base}/.well-known/agent-web"},
+                ).status_code,
+                401,
+            )
+            page = client.get(
+                f"{self.browser_base}/", params={"token": self.daemon_token}
+            )
             self.assertEqual(page.status_code, 200)
             self.assertIn("Agent Web Browser", page.text)
+            self.assertIn('name="agent-web-daemon-token"', page.text)
             connected = client.post(
                 f"{self.browser_base}/api/connect",
+                headers=token_headers,
                 json={
                     "agentDescriptionUrl": (
                         f"{self.moltbook_base}/moltbook/ad.json"
@@ -404,6 +429,7 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
             )
             action = client.post(
                 f"{self.browser_base}/api/actions",
+                headers=token_headers,
                 json={
                     "method": "create_thread",
                     "params": {
@@ -420,6 +446,7 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
             )
             native = client.post(
                 f"{self.browser_base}/api/connect",
+                headers=token_headers,
                 json={
                     "agentDescriptionUrl": (
                         f"{self.native_base}/.well-known/agent-web"
@@ -429,6 +456,7 @@ class SecureAgentWebNetworkTests(unittest.TestCase):
             self.assertEqual(native.status_code, 200, native.text)
             native_action = client.post(
                 f"{self.browser_base}/api/actions",
+                headers=token_headers,
                 json={
                     "method": "createAnnotation",
                     "params": {

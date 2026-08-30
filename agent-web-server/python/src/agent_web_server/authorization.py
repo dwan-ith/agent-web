@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 import re
 import sqlite3
@@ -21,6 +22,8 @@ from fastapi.responses import JSONResponse
 ScopeType = Literal["exact", "prefix"]
 ResourceResolver = Callable[[Mapping[str, Any]], str]
 _ACTION_PATTERN = re.compile(r"^[a-z][a-z0-9._:-]{0,127}$")
+
+LOGGER = logging.getLogger("agent_web.security")
 
 
 def _utc_now() -> datetime:
@@ -101,16 +104,34 @@ class AuthorizationStore:
     either exact URLs or explicit URL-directory prefixes.
     """
 
-    def __init__(self, database: str | Path = ":memory:") -> None:
+    def __init__(
+        self,
+        database: str | Path = ":memory:",
+        *,
+        audit_retention: int = 50_000,
+    ) -> None:
         self._lock = RLock()
+        if str(database) == ":memory:":
+            logging.getLogger("agent_web.security").warning(
+                "AuthorizationStore is using a per-process in-memory database; "
+                "grants and audit history are NOT shared across server workers. "
+                "Pass a file path for multi-process deployments."
+            )
+        if isinstance(audit_retention, bool) or audit_retention < 1000:
+            raise ValueError(
+                "audit_retention must be at least 1000 decisions"
+            )
+        self._audit_retention = audit_retention
         self._connection = sqlite3.connect(
             str(database),
             check_same_thread=False,
             isolation_level=None,
+            timeout=30.0,
         )
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._connection.execute("PRAGMA journal_mode = WAL")
+        self._connection.execute("PRAGMA busy_timeout = 30000")
         schema_version = int(
             self._connection.execute("PRAGMA user_version").fetchone()[0]
         )
@@ -314,11 +335,33 @@ class AuthorizationStore:
                         decided_at,
                     ),
                 )
+                self._prune_audit_locked()
                 self._connection.execute("COMMIT")
                 return decision
             except Exception:
                 self._connection.execute("ROLLBACK")
                 raise
+
+    def _prune_audit_locked(self) -> None:
+        """Keep the forensic trail bounded: newest decisions win."""
+
+        count = self._connection.execute(
+            "SELECT COUNT(*) AS count FROM authorization_audit"
+        ).fetchone()[0]
+        if int(count) <= self._audit_retention:
+            return
+        self._connection.execute(
+            """
+            DELETE FROM authorization_audit
+            WHERE sequence <= (
+                SELECT sequence FROM authorization_audit
+                ORDER BY sequence DESC LIMIT 1 OFFSET ?
+            )
+            """,
+            # The row just past the retention window: everything at or
+            # before it goes, leaving exactly the newest retained decisions.
+            (self._audit_retention,),
+        )
 
     def list_grants(self) -> list[dict[str, Any]]:
         with self._lock:
@@ -433,6 +476,17 @@ def install_rpc_authorization(
                 payload.get("id"),
                 -32602,
                 "Invalid params",
+            )
+        except sqlite3.Error:
+            LOGGER.exception(
+                "authorization store failure while deciding %s for %s",
+                rule.action,
+                subject_did,
+            )
+            return _rpc_error(
+                payload.get("id"),
+                -32001,
+                "Authorization temporarily unavailable",
             )
         request.state.authorization_decision = decision
         if not decision.allowed:

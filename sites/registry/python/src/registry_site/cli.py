@@ -165,9 +165,25 @@ def federate() -> None:
     parser.add_argument("--max-resources-per-source", type=int, default=100)
     parser.add_argument("--allow-private-network", action="store_true")
     parser.add_argument("--fail-fast", action="store_true")
+    parser.add_argument(
+        "--state-file",
+        help=(
+            "JSON file recording converged feed generations; unchanged feeds "
+            "are skipped for incremental convergence"
+        ),
+    )
     args = parser.parse_args()
     database = Path(args.database)
     database.parent.mkdir(parents=True, exist_ok=True)
+    state_file = None
+    known_generations = None
+    if args.state_file:
+        from .federation import FederationStateFile
+
+        state_path = Path(args.state_file)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_file = FederationStateFile(state_path)
+        known_generations = state_file.load()
     store = RegistryStore(database)
     try:
         indexer = RegistryIndexer(
@@ -182,7 +198,14 @@ def federate() -> None:
             max_sources=args.max_sources,
             max_resources_per_source=args.max_resources_per_source,
             continue_on_error=not args.fail_fast,
+            known_generations=known_generations,
         )
+        if state_file is not None and result.get("feedGeneration") is not None:
+            generations = known_generations or {}
+            feed_url = result.get("feedUrl")
+            if feed_url:
+                generations[feed_url] = int(result["feedGeneration"])
+                state_file.store(generations)
         print(json.dumps(result, indent=2))
     finally:
         store.close()

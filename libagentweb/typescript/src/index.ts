@@ -1,4 +1,4 @@
-import resourceSchema from "../../python/src/libagentweb/schemas/agent-web-resource.schema.json" with {
+import resourceSchema from "./schemas/agent-web-resource.schema.json" with {
   type: "json",
 };
 import {
@@ -206,15 +206,84 @@ export async function walkLinkedResources(
   return resources;
 }
 
+export * from "./http-signatures.js";
+export * from "./signing.js";
+
 export async function fetchAgentWebResource(
   url: string,
   fetcher: typeof fetch = fetch,
 ): Promise<AgentWebResource> {
-  const response = await fetcher(url, {
-    headers: { Accept: RESOURCE_MEDIA_TYPE },
-  });
-  if (!response.ok) {
+  const response = await boundedFetch(url, { headers: { Accept: RESOURCE_MEDIA_TYPE } });
+  if (response.status !== 200) {
     throw new Error(`Agent Web request failed with HTTP ${response.status}`);
   }
-  return validateResource(await response.json());
+  return validateResource((await response.json()) as AgentWebResource);
+}
+
+export interface BoundedFetchOptions {
+  timeoutMs?: number;
+  maxBytes?: number;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Bounded, no-redirect single request per the resource profile: browsers
+ * MUST bound bytes, time, and redirects. Returns the raw Response only when
+ * every bound held; the body has been fully read into memory.
+ */
+export async function boundedFetch(
+  url: string,
+  options: BoundedFetchOptions = {},
+): Promise<Response> {
+  const timeoutMs = options.timeoutMs ?? 8_000;
+  const maxBytes = options.maxBytes ?? 2 * 1024 * 1024;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: options.headers,
+      redirect: "error",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timer);
+    throw new Error(`Agent Web request failed before a response arrived: ${(error as Error).message}`);
+  }
+  try {
+    const advertised = response.headers.get("content-length");
+    if (advertised !== null && Number(advertised) > maxBytes) {
+      throw new Error(`Agent Web response exceeded the ${maxBytes}-byte limit`);
+    }
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Agent Web response carried no readable body");
+    }
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        void reader.cancel();
+        throw new Error(`Agent Web response exceeded the ${maxBytes}-byte limit`);
+      }
+      chunks.push(value);
+    }
+    const body = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }

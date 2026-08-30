@@ -8,6 +8,8 @@ from typing import Any
 from urllib.parse import quote
 
 from agent_web_server import (
+    BRIDGE_PUBLIC_GET_PATHS,
+    DEFAULT_PUBLIC_GET_PATHS,
     PublisherIdentity,
     SecurityConfig,
     generate_publisher_identity,
@@ -336,6 +338,7 @@ def create_app(
             identity=identity,
             base_url=base_url,
             nonce_database=nonce_database,
+            public_get_paths=DEFAULT_PUBLIC_GET_PATHS + BRIDGE_PUBLIC_GET_PATHS,
             allowed_origins=allowed_origins,
         ),
     )
@@ -384,11 +387,14 @@ def _render_weather(
     )
     detail = ""
     if selected:
+        stale_note = (
+            " · stale cached observation" if selected.get("stale") else ""
+        )
         detail = f"""<section><small>AGENT WEB RESOURCE</small>
 <h1>{escape(str(selected['location']))}</h1>
 <div class="temperature">{float(selected['temperatureC']):.1f} °C</div>
 <p>{escape(str(selected['condition']))}</p>
-<p>Observed {escape(str(selected['observedAt']))}; source: Open-Meteo.</p></section>"""
+<p>Observed {escape(str(selected['observedAt']))}; source: {escape(str(selected.get('sourceProvider', 'upstream')))}{stale_note}.</p></section>"""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Forecast — Agent Web bridge</title><style>

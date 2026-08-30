@@ -3,15 +3,21 @@
   "version": "0.2.1",
   "description": "Language-neutral Agent Web contracts with a TypeScript implementation",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./typescript/src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "files": [
-    "python/src/libagentweb/schemas/agent-web-resource.schema.json",
-    "python/src/libagentweb/schemas/agent-web-context.jsonld",
+    "dist",
     "typescript/src"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-schemas.mjs",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test typescript/tests/*.test.ts",
     "validate": "tsx typescript/scripts/validate-url.ts"

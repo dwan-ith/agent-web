@@ -9,7 +9,10 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from jsonschema import Draft202012Validator
 
-from .discovery import validate_discovery_document
+from .discovery import (
+    DISCOVERY_PATH,
+    validate_discovery_document,
+)
 from .identity import ResourceTrustError, verify_resource
 from .http_signatures import HTTP_SIGNATURE_SECURITY, sign_agent_web_request
 from .network import request_json
@@ -54,6 +57,7 @@ class WebAgentBrowser:
         self.caller_signer = caller_signer
         self._discovery: dict[str, Any] | None = None
         self._current_resource: dict[str, Any] | None = None
+        self._origin_discoveries: dict[str, dict[str, Any]] = {}
 
     async def discover(self) -> dict[str, Any]:
         document = await self._get_json(self.discovery_url, discovery=True)
@@ -106,8 +110,16 @@ class WebAgentBrowser:
             raise WebActionConfirmationRequired(
                 f"action '{action_name}' requires explicit user presence"
             )
+        input_schema = action.get("input")
+        try:
+            Draft202012Validator.check_schema(input_schema)
+            validator = Draft202012Validator(input_schema)
+        except Exception as exc:
+            raise ValueError(
+                f"action '{action_name}' advertises an invalid input schema"
+            ) from exc
         errors = sorted(
-            Draft202012Validator(action["input"]).iter_errors(dict(params)),
+            validator.iter_errors(dict(params)),
             key=lambda error: list(error.path),
         )
         if errors:
@@ -194,15 +206,48 @@ class WebAgentBrowser:
 
         discovery = self._discovery or await self.discover()
         document = validate_resource(response_document)
-        if document["provenance"]["publisher"] != discovery["publisher"]:
-            raise ResourceTrustError("action result publisher differs from Web discovery")
+        action_origin = _origin(url)
+        # An action response is whatever resource the publisher says resulted,
+        # so its identity need not equal the interface URL, but it MUST live on
+        # the serving origin and be verified against that origin's own
+        # discovery document.
+        if _origin(str(document["@id"])) != action_origin:
+            raise ResourceTrustError(
+                "action result @id does not use the action's origin"
+            )
+        if action_origin == _origin(self.discovery_url):
+            controller = discovery
+            if document["provenance"]["publisher"] != discovery["publisher"]:
+                raise ResourceTrustError(
+                    "action result publisher differs from Web discovery"
+                )
+        else:
+            controller = await self._discovery_for_origin(action_origin)
+            if document["provenance"]["publisher"] != controller["publisher"]:
+                raise ResourceTrustError(
+                    "action result publisher differs from its serving origin"
+                )
         verified = verify_resource(
             document,
-            controller_document=discovery,
+            controller_document=controller,
             reject_expired=True,
         )
         self._current_resource = deepcopy(verified)
         return verified
+
+    async def _discovery_for_origin(self, origin: str) -> dict[str, Any]:
+        """Fetch and validate the serving origin's own discovery document."""
+
+        cached = self._origin_discoveries.get(origin)
+        if cached is not None:
+            return cached
+        discovery_url = f"{origin}{DISCOVERY_PATH}"
+        document = validate_discovery_document(
+            await self._get_json(discovery_url, discovery=True),
+            discovery_url=discovery_url,
+        )
+        self._origin_discoveries[origin] = deepcopy(document)
+        return document
 
     async def _get_json(self, url: str, *, discovery: bool = False) -> dict[str, Any]:
         if _origin(url) not in self.allowed_origins:

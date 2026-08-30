@@ -140,6 +140,7 @@ def _wait_ready(
     context: ssl.SSLContext,
     processes: list[subprocess.Popen[str]],
     deadline_seconds: float = 20,
+    acceptable: frozenset[int] = frozenset({200}),
 ) -> None:
     import httpx
 
@@ -154,7 +155,7 @@ def _wait_ready(
         try:
             with httpx.Client(verify=context, timeout=1, trust_env=False) as client:
                 response = client.get(url)
-                if response.status_code == 200:
+                if response.status_code in acceptable:
                     return
         except Exception as exc:
             last_error = exc
@@ -243,7 +244,11 @@ def _run_child(config_path: Path) -> int:
             "agent_web_browser.cli",
             browser_identity,
             tls,
-            ["--allow-private-network"],
+            [
+                "--allow-private-network",
+                "--session-token",
+                "independent-federation-browser-token",
+            ],
         ),
     ]
     # registry_site expects its command immediately after the module name.
@@ -279,12 +284,19 @@ def _run_child(config_path: Path) -> int:
             )
         ca_context = ssl.create_default_context(cafile=tls["ca"])
         for url in (
-            f"{moltbook['baseUrl']}/health",
-            f"{forecast['baseUrl']}/health",
-            f"{registry['baseUrl']}/health",
-            f"{browser_identity['baseUrl']}/",
+            f"{moltbook['baseUrl']}/ready",
+            f"{forecast['baseUrl']}/ready",
+            f"{registry['baseUrl']}/ready",
         ):
             _wait_ready(url, context=ca_context, processes=processes)
+        # The browser daemon's UI requires a session token by design; a 401
+        # from its root proves the daemon is up and enforcing the gate.
+        _wait_ready(
+            f"{browser_identity['baseUrl']}/",
+            context=ca_context,
+            processes=processes,
+            acceptable=frozenset({200, 401}),
+        )
 
         indexed: list[dict[str, Any]] = []
         for description_url in (
@@ -358,6 +370,11 @@ def _run_child(config_path: Path) -> int:
         ) as client:
             graphical = client.post(
                 f"{browser_identity['baseUrl']}/api/connect",
+                headers={
+                    "X-Agent-Web-Browser-Token": (
+                        "independent-federation-browser-token"
+                    )
+                },
                 json={
                     "agentDescriptionUrl": (
                         f"{moltbook['baseUrl']}/moltbook/ad.json"

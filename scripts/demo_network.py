@@ -25,20 +25,26 @@ def _provision(directory: Path) -> dict[str, object]:
     import certifi
 
     ports: list[int] = []
-    while len(ports) < 4:
+    while len(ports) < 5:
         port = find_free_port()
         if port not in ports:
             ports.append(port)
-    names = ("moltbook", "forecast", "registry", "browser")
+    names = ("moltbook", "forecast", "registry", "browser", "native")
     paths = (
         "/moltbook/ad.json",
         "/forecast/ad.json",
         "/registry/ad.json",
         "/browser/ad.json",
+        None,
     )
     identities: dict[str, dict[str, str]] = {}
     for name, path, port in zip(names, paths, ports):
         base_url = f"https://localhost:{port}"
+        if path is None:
+            # The native Agent Web publisher needs no ANP identity; its
+            # trust root is the HTTPS origin's discovery document.
+            identities[name] = {"baseUrl": base_url}
+            continue
         identity = generate_publisher_identity(
             base_url=base_url,
             agent_name=name,
@@ -80,8 +86,13 @@ def _run_network(config_path: Path, *, stay: bool = False) -> int:
     from agent_web_server import PublisherIdentity, start_site
     from forecast_site import start_forecast
     import httpx
-    from libagentweb import AgentBrowser
+    from libagentweb import (
+        AgentBrowser,
+        LocalEd25519Signer,
+        build_caller_controller,
+    )
     from moltbook_site import start_moltbook
+    from native_knowledge_site import create_app as create_native_app
     from registry_site import RegistryIndexer, start_registry
 
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -90,11 +101,13 @@ def _run_network(config_path: Path, *, stay: bool = False) -> int:
     loaded = {
         name: PublisherIdentity.from_files(value["didPath"], value["keyPath"])
         for name, value in identities.items()
+        if "didPath" in value
     }
     moltbook_base = identities["moltbook"]["baseUrl"]
     forecast_base = identities["forecast"]["baseUrl"]
     browser_base = identities["browser"]["baseUrl"]
     registry_base = identities["registry"]["baseUrl"]
+    native_base = identities["native"]["baseUrl"]
     moltbook = start_moltbook(
         port=int(moltbook_base.rsplit(":", 1)[1]),
         database=str(config_path.parent / "moltbook.db"),
@@ -147,14 +160,51 @@ def _run_network(config_path: Path, *, stay: bool = False) -> int:
         indexer.index(f"{moltbook_base}/moltbook/ad.json"),
         indexer.index(f"{forecast_base}/forecast/ad.json"),
     ]
-    graphical = start_site(
-        lambda base_url: create_browser_app(
+    # The browser's Web-native caller identity: the daemon custodies this key
+    # and publishes its controller, letting the graphical UI perform
+    # authenticated HTTP actions on publishers that trust this controller.
+    caller_controller = f"{browser_base}/.well-known/agent-web-caller"
+    caller_signer = LocalEd25519Signer(
+        loaded["browser"].private_key,
+        key_id=f"{caller_controller}#key-1",
+    )
+    caller_document = build_caller_controller(
+        caller=caller_controller,
+        signer=caller_signer,
+    )
+    native = start_site(
+        lambda base_url: create_native_app(
+            database=str(config_path.parent / "native.db"),
+            replay_database=str(config_path.parent / "native-replays.db"),
+            base_url=base_url,
+            caller_controllers={caller_controller: caller_document},
+            annotation_writers={caller_controller},
+        ),
+        port=int(native_base.rsplit(":", 1)[1]),
+        tls_certificate=tls["certificate"],
+        tls_private_key=tls["privateKey"],
+    )
+    indexed_sites.append(
+        indexer.index(f"{native_base}/.well-known/agent-web")
+    )
+    daemon_token = "demo-network-browser-token"
+
+    def build_browser_daemon(base_url: str):
+        app = create_browser_app(
             identity=loaded["browser"],
             did_document_path=identities["browser"]["didPath"],
             private_key_path=identities["browser"]["keyPath"],
             base_url=base_url,
             allow_private_networks=True,
-        ),
+            session_token=daemon_token,
+            caller_controller=caller_controller,
+            caller_signer=caller_signer,
+        )
+        print(f"Graphical browser: {base_url}/?token={daemon_token}")
+        return app
+
+    graphical = start_site(
+        build_browser_daemon,
         port=int(browser_base.rsplit(":", 1)[1]),
         tls_certificate=tls["certificate"],
         tls_private_key=tls["privateKey"],
@@ -192,13 +242,43 @@ def _run_network(config_path: Path, *, stay: bool = False) -> int:
             {"query": "forecast", "limit": 10},
         )
         with httpx.Client(timeout=15) as client:
-            ui = client.get(f"{browser_base}/")
+            ui = client.get(
+                f"{browser_base}/", params={"token": daemon_token}
+            )
             graphical_connect = client.post(
                 f"{browser_base}/api/connect",
+                headers={"X-Agent-Web-Browser-Token": daemon_token},
                 json={
                     "agentDescriptionUrl": (
                         f"{moltbook_base}/moltbook/ad.json"
                     )
+                },
+            )
+            # The same flow the graphical UI performs: connect to Web-native
+            # discovery, then invoke its authenticated HTTP annotation action
+            # with the daemon-custodied caller key.
+            client.post(
+                f"{browser_base}/api/connect",
+                headers={"X-Agent-Web-Browser-Token": daemon_token},
+                json={
+                    "agentDescriptionUrl": (
+                        f"{native_base}/.well-known/agent-web"
+                    )
+                },
+            ).raise_for_status()
+            native_action = client.post(
+                f"{browser_base}/api/actions",
+                headers={"X-Agent-Web-Browser-Token": daemon_token},
+                json={
+                    "method": "createAnnotation",
+                    "params": {
+                        "topic": "typed-links",
+                        "text": (
+                            "Signed by the browser daemon's Web-native "
+                            "caller key during the live demo."
+                        ),
+                    },
+                    "confirmed": False,
                 },
             )
         npm = shutil.which("npm.cmd") or shutil.which("npm")
@@ -247,6 +327,27 @@ def _run_network(config_path: Path, *, stay: bool = False) -> int:
                 "uiStatus": ui.status_code,
                 "liveConnectStatus": graphical_connect.status_code,
                 "callerDid": graphical_connect.json()["status"]["callerDid"],
+                "webNativeAnnotation": {
+                    "status": native_action.status_code,
+                    "resource": (
+                        native_action.json().get("resource", {}).get("@id")
+                        if native_action.status_code == 200
+                        else native_action.text[:200]
+                    ),
+                    "author": (
+                        native_action.json()
+                        .get("resource", {})
+                        .get("data", {})
+                        .get("author")
+                        if native_action.status_code == 200
+                        else None
+                    ),
+                    "verifiedByDaemon": (
+                        native_action.json().get("verified")
+                        if native_action.status_code == 200
+                        else None
+                    ),
+                },
             },
         }
         print(json.dumps(proof, indent=2))
@@ -254,8 +355,9 @@ def _run_network(config_path: Path, *, stay: bool = False) -> int:
             from threading import Event
 
             print(
-                f"\nGraphical browser: {browser_base}/\n"
+                f"\nGraphical browser: {browser_base}/?token={daemon_token}\n"
                 f"Moltbook AD: {moltbook_base}/moltbook/ad.json\n"
+                f"Native discovery: {native_base}/.well-known/agent-web\n"
                 f"Forecast AD: {forecast_base}/forecast/ad.json\n"
                 f"Registry AD: {registry_base}/registry/ad.json\n"
                 "Press Ctrl+C to stop the local network.",

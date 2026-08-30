@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import json
+from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
@@ -20,6 +22,9 @@ class FederationSyncResult:
     resourcesIndexed: int
     failures: tuple[dict[str, str], ...]
     trust: str = "independent-source-reverification"
+    feedUrl: str | None = None
+    feedGeneration: int | None = None
+    skippedReason: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +34,9 @@ class FederationSyncResult:
             "resourcesIndexed": self.resourcesIndexed,
             "failures": list(self.failures),
             "trust": self.trust,
+            "feedUrl": self.feedUrl,
+            "feedGeneration": self.feedGeneration,
+            "skippedReason": self.skippedReason,
         }
 
 
@@ -55,6 +63,7 @@ class RegistryFederator:
         max_sources: int = 100,
         max_resources_per_source: int = 100,
         continue_on_error: bool = True,
+        known_generations: dict[str, int] | None = None,
     ) -> dict[str, Any]:
         if max_sources < 1 or max_sources > 1000:
             raise ValueError("max_sources must be between 1 and 1000")
@@ -66,6 +75,7 @@ class RegistryFederator:
                 max_sources=max_sources,
                 max_resources_per_source=max_resources_per_source,
                 continue_on_error=continue_on_error,
+                known_generations=known_generations,
             )
         ).as_dict()
 
@@ -76,6 +86,7 @@ class RegistryFederator:
         max_sources: int,
         max_resources_per_source: int,
         continue_on_error: bool,
+        known_generations: dict[str, int] | None,
     ) -> FederationSyncResult:
         peer_discovery_url = _canonical_discovery_url(peer_discovery_url)
         browser = self.browser_factory(
@@ -109,6 +120,31 @@ class RegistryFederator:
             raise ValueError("peer feed uses an unsupported federation profile")
         if extension.get("containsAssertions") is not False:
             raise ValueError("peer feed claims to contain source assertions")
+        generation = data.get("feedGeneration")
+        if generation is not None and (
+            isinstance(generation, bool)
+            or not isinstance(generation, int)
+            or generation < 0
+        ):
+            raise ValueError("peer feed generation is invalid")
+        if (
+            known_generations is not None
+            and generation is not None
+            and known_generations.get(feed_url) == generation
+            and generation > 0
+        ):
+            # Incremental convergence: the peer's signed feed still carries
+            # the generation we already converged to, so no work this round.
+            return FederationSyncResult(
+                peer=str(discovery["publisher"]),
+                sourcesAdvertised=0,
+                sourcesIndexed=0,
+                resourcesIndexed=0,
+                failures=(),
+                feedUrl=feed_url,
+                feedGeneration=int(generation),
+                skippedReason="feed-generation-unchanged",
+            )
         sources = [
             link for link in feed["links"]
             if link["rel"] == "source"
@@ -137,34 +173,88 @@ class RegistryFederator:
         indexed = 0
         resources = 0
         failures: list[dict[str, str]] = []
-        for url in urls:
-            try:
-                # Run synchronously only after the peer feed has been fully
-                # verified and bounded. RegistryIndexer re-fetches discovery
-                # and verifies the original publisher's resource graph.
+        # Verify original sources concurrently (bounded): each source runs in
+        # its own thread with its own event loop via RegistryIndexer, and the
+        # store serializes snapshots. Results stay in feed order regardless
+        # of completion order.
+        semaphore = asyncio.Semaphore(4)
+
+        async def verify_source(url: str) -> int:
+            async with semaphore:
                 result = await asyncio.to_thread(
                     self.indexer.index,
                     url,
                     max_resources=max_resources_per_source,
                 )
-                indexed += 1
-                resources += int(result["resourcesIndexed"])
-            except Exception as exc:
-                failures.append({"discoveryUrl": url, "error": str(exc)})
+                return int(result["resourcesIndexed"])
+
+        outcomes = await asyncio.gather(
+            *(verify_source(url) for url in urls), return_exceptions=True
+        )
+        for url, outcome in zip(urls, outcomes):
+            if isinstance(outcome, BaseException):
+                failures.append({"discoveryUrl": url, "error": str(outcome)})
                 if not continue_on_error:
-                    raise
+                    raise outcome
+            else:
+                indexed += 1
+                resources += outcome
         return FederationSyncResult(
             peer=str(discovery["publisher"]),
             sourcesAdvertised=len(urls),
             sourcesIndexed=indexed,
             resourcesIndexed=resources,
             failures=tuple(failures),
+            feedUrl=feed_url,
+            feedGeneration=(
+                None if generation is None else int(generation)
+            ),
         )
 
 
 def _types(resource: dict[str, Any]) -> set[str]:
     value = resource.get("@type", [])
     return {value} if isinstance(value, str) else set(value)
+
+
+class FederationStateFile:
+    """Durable record of converged feed generations, keyed by feed URL."""
+
+    def __init__(self, path: str | Path) -> None:
+        self._path = Path(path)
+
+    def load(self) -> dict[str, int]:
+        try:
+            document = json.loads(self._path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        if not isinstance(document, dict):
+            raise ValueError("federation state file must contain a JSON object")
+        state: dict[str, int] = {}
+        for url, generation in document.items():
+            if (
+                not isinstance(url, str)
+                or isinstance(generation, bool)
+                or not isinstance(generation, int)
+                or generation < 0
+            ):
+                raise ValueError("federation state file entries are invalid")
+            state[url] = generation
+        return state
+
+    def store(self, state: dict[str, int]) -> None:
+        cleaned = {
+            str(url): int(generation)
+            for url, generation in state.items()
+            if int(generation) >= 0
+        }
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self._path.with_suffix(self._path.suffix + ".tmp")
+        temporary.write_text(
+            json.dumps(cleaned, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(self._path)
 
 
 def _canonical_discovery_url(url: str) -> str:

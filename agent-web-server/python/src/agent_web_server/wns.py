@@ -57,9 +57,11 @@ class HandleStore:
             self.database,
             check_same_thread=False,
             isolation_level=None,
+            timeout=30.0,
         )
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA foreign_keys = ON")
+        self._connection.execute("PRAGMA busy_timeout = 30000")
         if self.database != ":memory:":
             self._connection.execute("PRAGMA journal_mode = WAL")
             self._connection.execute("PRAGMA synchronous = FULL")

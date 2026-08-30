@@ -14,6 +14,7 @@ if (-not (Test-Path -LiteralPath $AgentWebPython)) {
     -e (Join-Path $AgentWebRoot "sites\moltbook\python") `
     -e (Join-Path $AgentWebRoot "sites\forecast\python") `
     -e (Join-Path $AgentWebRoot "sites\registry\python") `
+    -e (Join-Path $AgentWebRoot "sites\native-knowledge\python") `
     -e (Join-Path $AgentWebRoot "line-mode-agent-browser\python") `
     -e (Join-Path $AgentWebRoot "agent-web-browser\python")
 

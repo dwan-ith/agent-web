@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatchcase
+import logging
 from pathlib import Path
 import sqlite3
 from threading import Lock
@@ -22,6 +23,9 @@ from fastapi.responses import JSONResponse
 from .identity import ManagedPublisherIdentity, PublisherIdentity
 
 
+LOGGER = logging.getLogger("agent_web.security")
+
+
 DEFAULT_PUBLIC_GET_PATHS = (
     "/health",
     "/live",
@@ -37,14 +41,17 @@ DEFAULT_PUBLIC_GET_PATHS = (
     "*/interface.json",
     "*/resources/*.json",
     "*/resources/*/*.json",
+)
+
+DEMO_PUBLIC_GET_PATHS = (
     "/forum",
     "/forum/*",
     "/forum/*/*",
-    "/weather",
-    "/weather/*",
-    "/directory",
-    "/directory/*",
 )
+
+BRIDGE_PUBLIC_GET_PATHS = ("/weather", "/weather/*")
+
+REGISTRY_PUBLIC_GET_PATHS = ("/directory", "/directory/*")
 
 
 class NonceStore:
@@ -56,12 +63,20 @@ class NonceStore:
         *,
         expiration_minutes: int = 6,
     ) -> None:
+        if str(database) == ":memory:":
+            LOGGER.warning(
+                "NonceStore is using a per-process in-memory database; "
+                "replay protection is NOT shared across server workers. "
+                "Pass a file path for multi-process deployments."
+            )
         self._connection = sqlite3.connect(
             str(database),
             check_same_thread=False,
             isolation_level=None,
+            timeout=30.0,
         )
         self._connection.execute("PRAGMA journal_mode=WAL")
+        self._connection.execute("PRAGMA busy_timeout = 30000")
         schema_version = int(
             self._connection.execute("PRAGMA user_version").fetchone()[0]
         )
@@ -217,6 +232,11 @@ def install_security(app: FastAPI, config: SecurityConfig) -> NonceStore:
                 headers=exc.headers,
             )
         except Exception:
+            LOGGER.exception(
+                "unhandled error while serving %s %s",
+                request.method,
+                request.url.path,
+            )
             response = _problem(500, "internal server error")
 
         response.headers["Strict-Transport-Security"] = (

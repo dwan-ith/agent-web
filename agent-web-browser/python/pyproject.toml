@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-web-graphical-browser"
+version = "0.2.0"
+description = "Local graphical Agent Web browser with optional protocol adapters"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "libagentweb>=0.2.1",
+  "uvicorn>=0.35,<1",
+]
+
+[project.optional-dependencies]
+anp = [
+  "agent-web-server>=0.2.0",
+  "libagentweb[anp]>=0.2.1",
+]
+
+[project.scripts]
+agent-web-browser = "agent_web_browser.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agent_web_browser = ["static/*", "static/assets/*"]

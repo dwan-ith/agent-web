@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import threading
+import time
 from typing import Any, Iterable, Mapping
 from urllib.parse import quote, urlencode, urlsplit
 
@@ -30,6 +34,9 @@ from libagentweb import (
 from .store import KnowledgeStore
 
 
+ANNOTATION_PAGE_SIZE = 50
+
+
 DEFAULT_TOPICS = (
     {
         "slug": "agent-web",
@@ -50,6 +57,45 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+class CallerRateLimit:
+    """Small in-process sliding window keyed by verified caller controller.
+
+    Denial-of-service surface reduction only: a 429 never implies the caller
+    was unauthorized, and passing the limiter grants no authority.
+    """
+
+    MAX_TRACKED_CALLERS = 10_000
+
+    def __init__(self, *, max_events: int, window_seconds: float) -> None:
+        if max_events < 1:
+            raise ValueError("max_events must be positive")
+        if window_seconds <= 0 or window_seconds > 3600:
+            raise ValueError("window_seconds must be in (0, 3600]")
+        self._max_events = max_events
+        self._window = window_seconds
+        self._lock = threading.Lock()
+        self._events: dict[str, deque[float]] = {}
+
+    def allow(self, key: str) -> bool:
+        current = time.monotonic()
+        cutoff = current - self._window
+        with self._lock:
+            bucket = self._events.get(key)
+            if bucket is not None:
+                while bucket and bucket[0] <= cutoff:
+                    bucket.popleft()
+            if bucket is None:
+                if len(self._events) >= self.MAX_TRACKED_CALLERS:
+                    # Sustained pressure from distinct callers: shed new keys.
+                    return False
+                bucket = deque()
+                self._events[key] = bucket
+            if len(bucket) >= self._max_events:
+                return False
+            bucket.append(current)
+            return True
+
+
 def create_app(
     *,
     database: str | Path = ":memory:",
@@ -59,6 +105,7 @@ def create_app(
     caller_controllers: Mapping[str, Mapping[str, Any]] | None = None,
     annotation_writers: Iterable[str] = (),
     replay_database: str | Path = ":memory:",
+    annotations_per_minute: int = 30,
 ) -> FastAPI:
     """Create a native Agent Web publisher with deliberately no HTML routes."""
 
@@ -75,6 +122,10 @@ def create_app(
     )
     store = KnowledgeStore(database)
     replay_store = HttpSignatureReplayStore(replay_database)
+    annotation_limiter = CallerRateLimit(
+        max_events=annotations_per_minute,
+        window_seconds=60.0,
+    )
     trusted_callers = {
         str(controller): dict(document)
         for controller, document in (caller_controllers or {}).items()
@@ -192,12 +243,14 @@ def create_app(
             "mediaType": RESOURCE_MEDIA_TYPE,
             "title": topic["title"],
         } for topic in topics)
-        links.extend({
+        # Annotations live in their own paginated collection so this entry
+        # resource stays bounded no matter how many annotations accumulate.
+        links.append({
             "rel": "item",
-            "href": f"{base_url}/resources/annotations/{item['annotation_id']}",
+            "href": f"{base_url}/resources/annotations.json",
             "mediaType": RESOURCE_MEDIA_TYPE,
-            "title": f"Annotation on {item['topic_slug']}",
-        } for item in store.annotations())
+            "title": "Annotations",
+        })
         return resource_base(
             resource_id=resource_id,
             resource_type=["AgentWebCollection", "KnowledgeIndex"],
@@ -208,9 +261,60 @@ def create_app(
             affordances=affordances,
             data={
                 "topicCount": len(topics),
-                "annotationCount": len(store.annotations()),
+                "annotationCount": store.count_annotations(),
                 "humanView": None,
                 "anpRequired": False,
+            },
+        )
+
+    def annotations_collection_resource(page: int) -> dict[str, Any]:
+        records = store.annotations(
+            limit=ANNOTATION_PAGE_SIZE, offset=page * ANNOTATION_PAGE_SIZE
+        )
+        total = store.count_annotations()
+        collection_id = (
+            f"{base_url}/resources/annotations.json"
+            if page == 0
+            else f"{base_url}/resources/annotations.json?{urlencode({'page': page})}"
+        )
+        links = [
+            {"rel": "self", "href": collection_id, "mediaType": RESOURCE_MEDIA_TYPE},
+            {"rel": "collection", "href": f"{base_url}/resources/index", "mediaType": RESOURCE_MEDIA_TYPE},
+        ]
+        if page > 0:
+            previous = (
+                f"{base_url}/resources/annotations.json"
+                if page == 1
+                else f"{base_url}/resources/annotations.json?{urlencode({'page': page - 1})}"
+            )
+            links.append({"rel": "prev", "href": previous, "mediaType": RESOURCE_MEDIA_TYPE})
+        if (page + 1) * ANNOTATION_PAGE_SIZE < total:
+            links.append({
+                "rel": "next",
+                "href": (
+                    f"{base_url}/resources/annotations.json?"
+                    + urlencode({"page": page + 1})
+                ),
+                "mediaType": RESOURCE_MEDIA_TYPE,
+            })
+        links.extend({
+            "rel": "item",
+            "href": f"{base_url}/resources/annotations/{record['annotation_id']}",
+            "mediaType": RESOURCE_MEDIA_TYPE,
+            "title": f"Annotation on {record['topic_slug']}",
+        } for record in records)
+        return resource_base(
+            resource_id=collection_id,
+            resource_type=["AgentWebCollection", "KnowledgeAnnotations"],
+            kind="collection",
+            name="Native Knowledge annotations",
+            description="Authenticated caller annotations, newest first.",
+            links=links,
+            data={
+                "annotationCount": total,
+                "page": page,
+                "pageSize": ANNOTATION_PAGE_SIZE,
+                "count": len(records),
             },
         )
 
@@ -252,6 +356,9 @@ def create_app(
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
         response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
         return response
 
     @app.get("/.well-known/agent-web")
@@ -269,6 +376,15 @@ def create_app(
     @app.get("/resources/index")
     async def index() -> JSONResponse:
         return JSONResponse(collection_resource(), media_type=RESOURCE_MEDIA_TYPE)
+
+    @app.get("/resources/annotations.json")
+    async def annotations_page(
+        page: int = Query(0, ge=0, le=1000),
+    ) -> JSONResponse:
+        return JSONResponse(
+            annotations_collection_resource(page),
+            media_type=RESOURCE_MEDIA_TYPE,
+        )
 
     @app.get("/resources/topics/{slug}")
     async def topic(slug: str) -> JSONResponse:
@@ -340,6 +456,8 @@ def create_app(
             raise HTTPException(401, str(exc)) from exc
         if authenticated.controller not in writers:
             raise HTTPException(403, "caller is not authorized to create annotations")
+        if not annotation_limiter.allow(authenticated.controller):
+            raise HTTPException(429, "annotation rate limit exceeded")
         try:
             payload = json.loads(body)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -371,11 +489,14 @@ def create_app(
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {"status": "ok", "publisher": publisher, "database": store.integrity_check()}
+        # Integrity probes are blocking SQLite calls; keep them off the
+        # event loop so a slow database cannot stall serving.
+        healthy = await asyncio.to_thread(store.integrity_check)
+        return {"status": "ok", "publisher": publisher, "database": healthy}
 
     @app.get("/ready")
     async def ready() -> JSONResponse:
-        healthy = store.integrity_check()
+        healthy = await asyncio.to_thread(store.integrity_check)
         return JSONResponse(
             {"status": "ready" if healthy else "not-ready", "database": healthy},
             status_code=200 if healthy else 503,

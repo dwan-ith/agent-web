@@ -95,7 +95,8 @@ Web-native discovery lives at `/.well-known/agent-web`. It binds the HTTPS origi
 
 - `libagentweb/`: Resource Profile 0.2, JSON Schema, JSON-LD context,
   ANP-free Web discovery and proof-verifying browser, optional ANP adapter,
-  TypeScript consumer, and conformance fixtures.
+  Python and TypeScript resource verification (including cross-language
+  `eddsa-jcs-2022` proof vectors), and conformance fixtures.
 - `agent-web-server/`: Web-native discovery, DID hosting, optional WNS handle
   publication, signing, HTTP
   security, persistent replay protection, scoped authorization grants,
@@ -122,14 +123,20 @@ The protocol-neutral reference implementation provides:
 
 - origin-bound `/.well-known/agent-web` discovery over HTTPS;
 - Web-native resource verification using discovery-authorized Multikey or JWK
-  keys, with no ANP runtime required;
+  keys, with no ANP runtime required, in both Python and TypeScript from one
+  committed conformance-vector set;
+- bounded collections: paginated child collections with `next`/`prev` typed
+  links instead of unbounded inline members, and action results verified
+  against the serving origin's own discovery;
 - ordinary HTTP as the default action binding and ANP/MCP/A2A as optional
   interfaces;
 - authenticated HTTP mutations using a strict RFC 9421 Ed25519 profile, RFC
   9530 body digests, HTTPS caller controllers, short lifetimes, and durable
   one-use nonces, without ANP or DID-WBA;
 - signed non-transitive registry federation feeds whose receiving registries
-  independently re-fetch and verify every original Agent Web publisher;
+  independently re-fetch and verify every original Agent Web publisher, with
+  content-addressed feed generations so unchanged re-verifications never force
+  peer re-syncs;
 - W3C `eddsa-jcs-2022` Data Integrity proofs implemented in `libagentweb`
   rather than delegated to an agent-network SDK;
 
@@ -152,7 +159,8 @@ The optional ANP compatibility deployment additionally provides:
   rotation, retired-generation retention, and two-sided transition evidence;
 - browser-side DID/service/proof/canonical/expiry verification, exact-handle
   resolution with rollback floors, explicit origin policy, DNS-pinned
-  private-network blocking, and user confirmation;
+  private-network blocking, session-token gating of the local daemon API so
+  only the tokenized UI can drive the custodial key, and user confirmation;
 - Registry admission only through a bounded operator command that verifies the
   live DID, Agent Description proof, every resource proof, origin, canonical
   URL, publisher identity, and expiry before atomically replacing an index;
@@ -191,6 +199,14 @@ compilation, dependency integrity,
 the React production build, a vulnerability audit, deployment-contract checks,
 a four-origin live TLS acceptance network, and a second federation in four
 independent operating-system processes.
+
+Air-gapped environments that cannot reach the npm registry can skip the
+network-dependent audit step with `AGENT_WEB_SKIP_NPM_AUDIT=1`.
+
+Multi-process publishers MUST give every site a file-backed nonce,
+authorization, and content database (the CLIs accept these paths); the
+per-process `:memory:` defaults are for tests and single-worker development
+only, and the server logs a warning when it sees them.
 
 Run the bounded real-upstream proof:
 
@@ -234,3 +250,5 @@ agent-web-registry-federate --help
 ```
 
 For the isolated container contract, see [deploy/README.md](deploy/README.md).
+A full engineering review — limitations found, fixes applied, and open work —
+is recorded in [docs/critical-analysis.md](docs/critical-analysis.md).

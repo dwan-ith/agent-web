@@ -9,6 +9,8 @@ from typing import Any
 from urllib.parse import quote
 
 from agent_web_server import (
+    DEFAULT_PUBLIC_GET_PATHS,
+    DEMO_PUBLIC_GET_PATHS,
     AuthorizationStore,
     PublisherIdentity,
     RpcAuthorizationRule,
@@ -338,7 +340,10 @@ def create_app(
     app = FastAPI(
         title="Moltbook Agent Web publisher",
         version="0.2.0",
-        description="Signed resources and authenticated actions over ANP.",
+        description=(
+            "Signed resources and authenticated actions over ordinary HTTPS; "
+            "ANP remains an optional compatibility binding."
+        ),
         docs_url=None,
         redoc_url=None,
     )
@@ -425,6 +430,7 @@ def create_app(
             identity=identity,
             base_url=base_url,
             nonce_database=nonce_database,
+            public_get_paths=DEFAULT_PUBLIC_GET_PATHS + DEMO_PUBLIC_GET_PATHS,
             allowed_origins=allowed_origins,
         ),
     )
